@@ -156,6 +156,9 @@ pub struct Stats {
     pub st: f64,
     /// Strouhal number from mean-crossings of the lift (independent cross-check).
     pub st_crossings: f64,
+    /// Whether the lift oscillates regularly in the analysed window: at least three periods
+    /// and the two frequency estimates within 5 % of each other. If not, `st` is 0.
+    pub periodic: bool,
 }
 
 impl Series {
@@ -164,14 +167,52 @@ impl Series {
         let i0 = ((from / self.dt) as usize).min(self.cd.len().saturating_sub(2));
         let (cd, cl) = (&self.cd[i0..], &self.cl[i0..]);
         let cl_rms = crate::signal::rms(cl);
-        let oscillates = cl_rms > 1e-6;
+        let (mut st, mut st_crossings, mut periodic) = (0.0, 0.0, false);
+        if cl_rms > 1e-6 {
+            let f = crate::signal::dominant_frequency(cl, self.dt).0;
+            st_crossings = crate::signal::crossing_frequency(cl, self.dt).unwrap_or(0.0);
+            periodic = f * cl.len() as f64 * self.dt >= 3.0 && (st_crossings / f - 1.0).abs() < 0.05;
+            if periodic {
+                st = f;
+            }
+        }
         Stats {
             cd_mean: crate::signal::mean(cd),
             cd_rms: crate::signal::rms(cd),
             cl_mean: crate::signal::mean(cl),
             cl_rms,
-            st: if oscillates { crate::signal::dominant_frequency(cl, self.dt).0 } else { 0.0 },
-            st_crossings: if oscillates { crate::signal::crossing_frequency(cl, self.dt).unwrap_or(0.0) } else { 0.0 },
+            st,
+            st_crossings,
+            periodic,
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::Series;
+
+    #[test]
+    fn strouhal_is_reported_only_for_a_regular_oscillation() {
+        let dt = 0.01;
+        let wave = |f: f64, n: usize| -> Series {
+            let cl: Vec<f64> = (0..n).map(|i| 0.4 * (2.0 * std::f64::consts::PI * f * i as f64 * dt).sin()).collect();
+            Series { dt, cd: vec![1.5; n], cl }
+        };
+        // 0.16 cycles per time unit over 100 units, statistics from t = 50: eight periods.
+        let s = wave(0.16, 10_000).stats(50.0);
+        assert!(s.periodic && (s.st - 0.16).abs() < 1e-3 && (s.st_crossings - 0.16).abs() < 2e-3);
+        assert!((s.cl_rms - 0.4 / 2f64.sqrt()).abs() < 5e-3 && (s.cd_mean - 1.5).abs() < 1e-12);
+        // Only one and a half periods in the window: not enough to call it periodic.
+        let s = wave(0.03, 10_000).stats(50.0);
+        assert!(!s.periodic && s.st == 0.0);
+        // A drifting, non-oscillating lift.
+        let n = 5000;
+        let drift = Series { dt, cd: vec![1.0; n], cl: (0..n).map(|i| (i as f64 / n as f64).powi(2)).collect() };
+        assert!(!drift.stats(10.0).periodic);
+        // No lift at all.
+        let flat = Series { dt, cd: vec![1.0; n], cl: vec![0.0; n] };
+        let s = flat.stats(10.0);
+        assert!(!s.periodic && s.st == 0.0 && s.cl_rms == 0.0);
     }
 }

@@ -158,6 +158,8 @@ fn print_outcome(t: &Tunnel, o: &Outcome) {
             tr("from zero crossings:", "由過零點算："),
             s.st_crossings
         );
+    } else if s.cl_rms > 1e-3 {
+        println!("  {}", tr("the lift has not settled into a regular oscillation in the analysed half of the run; run longer (--units) for a Strouhal number", "升力在統計區間內還沒有變成規律的擺動；想得到史特豪數請把 --units 加大"));
     } else {
         println!("  {}", tr("no vortex shedding detected (the lift does not oscillate)", "沒有偵測到渦流脫落（升力沒有擺動）"));
     }
