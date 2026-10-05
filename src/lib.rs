@@ -7,8 +7,11 @@
 
 pub mod cases;
 pub mod geometry;
+pub mod gif;
 pub mod lattice;
+pub mod png;
 pub mod pool;
+pub mod render;
 pub mod signal;
 pub mod sim;
 pub mod units;

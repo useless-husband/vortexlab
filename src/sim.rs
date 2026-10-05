@@ -19,7 +19,9 @@
 //!   (Bouzidi, Firdaouss & Lallemand 2001), with the moving-wall term of Lallemand & Luo
 //!   (2003); `q = 1/2` is the classic halfway bounce-back;
 //! * prescribed velocity (inlet, lid, towing-tank walls): the same rule with a wall velocity;
-//! * prescribed pressure (outlet): anti-bounce-back (Ginzburg, Verhaeghe & d'Humieres 2008).
+//! * prescribed pressure (outlet): anti-bounce-back (Ginzburg, Verhaeghe & d'Humieres 2008),
+//!   optionally with the boundary density adjusted so that plane sound waves leave
+//!   ([`Sim::outflow_target`]).
 //!
 //! The same pass sums the momentum handed to each body (momentum-exchange method, Ladd 1994;
 //! in the Galilean-invariant form of Wen et al. 2014), in a fixed link order.
@@ -184,6 +186,20 @@ pub struct Sim {
     pub vscale: [f64; VGROUPS],
     /// Force on each force group during the last step (lattice units, momentum per step).
     pub force: Vec<[f64; 2]>,
+    /// Makes pressure boundaries absorb plane sound waves instead of reflecting them.
+    ///
+    /// With `Some(u)`, the boundary density is raised by (<u_n> - u) / c_s each step, where
+    /// <u_n> is the outward normal velocity averaged over all nodes next to the pressure
+    /// boundary and `u` is the mean outflow velocity the incompressible flow must have (the
+    /// inflow rate). The difference is non-zero only while a sound wave is passing, and
+    /// rho' = u' / c_s is exactly the relation in a wave travelling outwards, so the wave
+    /// leaves; vortices crossing the boundary do not change the average and are not affected.
+    /// With `None` the boundary density is fixed and sound waves are reflected.
+    pub outflow_target: Option<f64>,
+    /// The density offset applied in the last step (diagnostic).
+    pub outlet_density_offset: f64,
+    /// Nodes next to a pressure boundary with the outward normal.
+    pnodes: Vec<(usize, i8, i8)>,
     /// Steps taken.
     pub t: u64,
     fluid_nodes: usize,
@@ -218,6 +234,7 @@ impl Sim {
         let mut bnodes = Vec::new();
         let mut links: Vec<Link> = Vec::new();
         let mut ngroups = 0usize;
+        let mut pnodes: Vec<(usize, i8, i8)> = Vec::new();
         let mut fluid_nodes = 0usize;
         for y in 0..ny {
             for x in 0..nx {
@@ -250,20 +267,14 @@ impl Sim {
                         Kind::Pressure(rho) => {
                             link.kind = LINK_PRESSURE;
                             link.rho = *rho;
-                            // For the velocity extrapolation `behind` is the next node inward
-                            // along the boundary normal, not along the link.
-                            let normal = if wrap(x as isize + cx, y as isize)
-                                .map(|i| matches!(b.kinds[b.cell[i] as usize], Kind::Pressure(_)))
-                                == Some(true)
-                            {
-                                (cx, 0)
+                            let normal = if wrap(x as isize + cx, y as isize).map(|i| matches!(b.kinds[b.cell[i] as usize], Kind::Pressure(_))) == Some(true) {
+                                (cx as i8, 0)
                             } else {
-                                (0, cy)
+                                (0, cy as i8)
                             };
-                            link.behind = match wrap(x as isize - normal.0, y as isize - normal.1) {
-                                Some(i) if b.cell[i] == FLUID => i,
-                                _ => NONE,
-                            };
+                            if pnodes.last().map(|p: &(usize, i8, i8)| p.0) != Some(idx) {
+                                pnodes.push((idx, normal.0, normal.1));
+                            }
                         }
                         Kind::Wall(wall) => {
                             assert!(wall.vgroup < VGROUPS);
@@ -309,6 +320,9 @@ impl Sim {
             pool: Pool::new(threads),
             vscale: [1.0; VGROUPS],
             force: vec![[0.0, 0.0]; ngroups],
+            outflow_target: None,
+            outlet_density_offset: 0.0,
+            pnodes,
             t: 0,
             fluid_nodes,
         };
@@ -390,7 +404,7 @@ impl Sim {
         let (op, om) = self.omega;
         let [gx, gy] = self.accel;
         let collision = self.collision;
-        let Sim { a, b, bnodes, links, force, vscale, .. } = self;
+        let Sim { a, b, bnodes, links, force, vscale, pnodes, outflow_target, outlet_density_offset, .. } = self;
         let a = &a[..];
         let velocity = |idx: usize| -> (f64, f64) {
             let mut f = [0.0; Q];
@@ -403,6 +417,19 @@ impl Sim {
         for f in force.iter_mut() {
             *f = [0.0, 0.0];
         }
+        // Plane-wave absorbing outlet: see `outflow_target`.
+        let drho = match *outflow_target {
+            Some(target) if !pnodes.is_empty() => {
+                let mut sum = 0.0;
+                for &(idx, nx, ny) in pnodes.iter() {
+                    let (ux, uy) = velocity(idx);
+                    sum += nx as f64 * ux + ny as f64 * uy;
+                }
+                (sum / pnodes.len() as f64 - target) / CS2.sqrt()
+            }
+            _ => 0.0,
+        };
+        *outlet_density_offset = drho;
         for bn in bnodes.iter() {
             let idx = bn.idx;
             let mut f = [0.0; Q];
@@ -426,16 +453,11 @@ impl Sim {
                         out - corr
                     }
                 } else {
-                    // Anti-bounce-back with the wall velocity extrapolated from the interior.
+                    // Anti-bounce-back: reflects with opposite sign around the equilibrium of
+                    // the boundary density, using the local velocity as the wall velocity.
                     let (ux, uy) = velocity(idx);
-                    let (ux, uy) = if l.behind != NONE {
-                        let (bx, by) = velocity(l.behind);
-                        (1.5 * ux - 0.5 * bx, 1.5 * uy - 0.5 * by)
-                    } else {
-                        (ux, uy)
-                    };
                     let cu = 3.0 * (CX[j] as f64 * ux + CY[j] as f64 * uy);
-                    -out + 2.0 * W[j] * l.rho * (1.0 + 0.5 * cu * cu - 1.5 * (ux * ux + uy * uy))
+                    -out + 2.0 * W[j] * (l.rho + drho) * (1.0 + 0.5 * cu * cu - 1.5 * (ux * ux + uy * uy))
                 };
                 f[i] = back;
                 if l.fgroup != NONE {

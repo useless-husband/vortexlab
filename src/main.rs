@@ -49,6 +49,29 @@ fn main() {
             let umin = o.u_vertical.iter().fold(0.0f64, |a, p| a.min(p.1));
             println!("steps {} conv {} sec {:.1} umin {umin}", o.steps, o.converged, o.seconds);
         }
+        Some("sq") => {
+            use vortexlab::geometry::{section, Corner};
+            let d: usize = args[2].parse().unwrap();
+            let re: f64 = args[3].parse().unwrap();
+            let b: f64 = args[5].parse().unwrap();
+            let corner = match args[4].as_str() { "square" => Corner::Sharp, "chamfer" => Corner::Chamfered(b), "round" => Corner::Rounded(b), "recess" => Corner::Recessed(b), _ => Corner::DoubleRecessed(b) };
+            let units: f64 = args[6].parse().unwrap();
+            let t = vortexlab::cases::tunnel::Tunnel { d, re, u: 0.1, upstream: 8.0, downstream: 16.0, height: 12.0, collision: Collision::Trt { magic: 0.1875 }, threads: 4 };
+            let (cx, cy) = t.centre();
+            let mut ch = t.build(section(corner, cx, cy, d as f64, 0.0));
+            let t0 = std::time::Instant::now();
+            let s = t.run(&mut ch, units, 0, &mut |_| {}).unwrap();
+            let st = s.stats(units * 0.5);
+            println!("{} {:?} sec {:.0}", corner.name(), st, t0.elapsed().as_secs_f64());
+            let (nx, ny) = t.grid();
+            let view = vortexlab::render::View { x0: 0, x1: nx, y0: 0, y1: ny, zoom: 0.75 };
+            let (w, h) = view.size();
+            let px = vortexlab::render::vorticity_frame(&ch.sim, view, 3.0 * 0.1 / d as f64);
+            std::fs::write(format!("/private/tmp/claude-501/portfolio/vortexlab/{}.png", corner.name()), vortexlab::png::encode(w, h, vortexlab::png::Pixels::Indexed(&px, &vortexlab::render::palette()))).unwrap();
+            let mut out = String::new();
+            for i in (0..s.cd.len()).step_by(20) { out += &format!("{} {} {}\n", i as f64 * s.dt, s.cd[i], s.cl[i]); }
+            std::fs::write(format!("/private/tmp/claude-501/portfolio/vortexlab/{}.txt", corner.name()), out).unwrap();
+        }
         _ => eprintln!("usage: vortexlab <command>"),
     }
 }

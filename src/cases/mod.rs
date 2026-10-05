@@ -4,6 +4,7 @@ pub mod cavity;
 pub mod channel;
 pub mod cylinder;
 pub mod poiseuille;
+pub mod tunnel;
 
 /// Smooth 0 -> 1 ramp (cubic smoothstep) used to start inlets without a pressure shock.
 pub fn ramp(t: u64, steps: u64) -> f64 {

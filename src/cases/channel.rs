@@ -59,6 +59,8 @@ pub struct Channel {
     kick: Option<Kick>,
     /// Mean inflow velocity (lattice units).
     pub u_ref: f64,
+    /// Let plane sound waves leave through the outlet (default) instead of reflecting them.
+    pub absorbing_outlet: bool,
 }
 
 impl Channel {
@@ -98,12 +100,15 @@ impl Channel {
             Inflow::Uniform { u } => u,
             Inflow::Parabolic { u_mean } => u_mean,
         };
-        Channel { sim, ramp_steps, kick, u_ref }
+        Channel { sim, ramp_steps, kick, u_ref, absorbing_outlet: std::env::var("REFLECT").is_err() }
     }
 
     pub fn step(&mut self) {
         let t = self.sim.t;
         self.sim.vscale[1] = ramp(t, self.ramp_steps);
+        if self.absorbing_outlet {
+            self.sim.outflow_target = Some(self.u_ref * self.sim.vscale[1]);
+        }
         self.sim.vscale[2] = match self.kick {
             Some(k) if t >= k.start && t < k.start + k.duration => {
                 let s = (t - k.start) as f64 / k.duration as f64;
