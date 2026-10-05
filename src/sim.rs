@@ -452,9 +452,9 @@ impl Sim {
                 let out = a[j * n + idx];
                 let scale = vscale[l.vgroup as usize];
                 let back = if l.kind == LINK_WALL {
-                    // Momentum given to the fluid by a moving wall: 6 w rho (c . u_w), with the
-                    // local fluid density standing in for the density at the wall.
-                    let corr = if l.cu6 != 0.0 { l.cu6 * scale * (f[0] + a[idx + n] + a[idx + 2 * n] + a[idx + 3 * n] + a[idx + 4 * n] + a[idx + 5 * n] + a[idx + 6 * n] + a[idx + 7 * n] + a[idx + 8 * n]) } else { 0.0 };
+                    // Momentum given to the fluid by a moving wall, 6 w rho_0 (c . u_w), with
+                    // the reference density rho_0 = 1 (see docs/DESIGN.md, 3.5).
+                    let corr = l.cu6 * scale;
                     if l.q >= 0.5 {
                         let k = 0.5 / l.q;
                         k * (out - corr) + (1.0 - k) * a[i * n + idx]

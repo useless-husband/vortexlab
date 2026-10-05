@@ -163,14 +163,14 @@ fn open_channel(nx: usize, rows: usize, inflow: Inflow, tau: f64) -> Sim {
     (b.tau, b.collision) = (tau, TRT);
     let h = rows as f64;
     let profile = move |y: f64| match inflow {
-        Inflow::Uniform { u } => u,
+        Inflow::Uniform { u } | Inflow::UniformOpen { u } => u,
         Inflow::Parabolic { u_mean } => 6.0 * u_mean * (y - 0.5) * (h - (y - 0.5)) / (h * h),
     };
     let inlet = b.add(Kind::Wall(Wall { velocity: Some(Box::new(move |_, y| [profile(y), 0.0])), ..Wall::default() }));
     let outlet = b.add(Kind::Pressure(1.0));
     let walls = match inflow {
         Inflow::Parabolic { .. } => b.add_static_wall(),
-        Inflow::Uniform { u } => b.add(Kind::Wall(Wall { velocity: Some(Box::new(move |_, _| [u, 0.0])), ..Wall::default() })),
+        Inflow::Uniform { u } | Inflow::UniformOpen { u } => b.add(Kind::Wall(Wall { velocity: Some(Box::new(move |_, _| [u, 0.0])), ..Wall::default() })),
     };
     b.fill_rect(0, 0, 0, rows + 1, inlet);
     b.fill_rect(nx - 1, nx - 1, 0, rows + 1, outlet);
@@ -228,10 +228,12 @@ fn inlet_and_outlet_drive_developed_channel_flow() {
     let rho_out = sim.macros(nx - 2, 10).0;
     let u_max = 1.5 * u_mean;
     assert!((rho_out - 1.0).abs() < 6.0 * u_max * u_max, "outlet density {rho_out}");
-    // Mass flux in = mass flux out, and the inlet imposes the prescribed velocity.
+    // Mass flux in = mass flux out = what the inlet prescribes (rho_0 times the profile).
     assert!((flux(2) / flux(nx - 3) - 1.0).abs() < 1e-6);
-    let u_in = (1..=rows).map(|y| sim.macros(1, y).1).sum::<f64>() / h;
-    assert!((u_in / u_mean - 1.0).abs() < 2e-3, "inlet velocity {u_in}");
+    // The inlet links sample the parabola with Simpson weights, so the mass crossing any
+    // section per step (the plain sum over its nodes) is exactly u_mean * H.
+    let crossing = mean_flux * (1.0 + 0.5 / (h * h));
+    assert!((crossing / u_mean - 1.0).abs() < 1e-6, "mass flux {crossing}");
 }
 
 fn cylinder_channel(threads: usize) -> Channel {

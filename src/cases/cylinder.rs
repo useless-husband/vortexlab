@@ -164,9 +164,9 @@ pub struct Unsteady {
     pub window_start: usize,
 }
 
-/// Case 2D-2 (Re = 100). Runs `total_units` convective time units (D/U; 1 unit = 0.1 s of the
+/// Case 2D-2 (Re = 100). Fails if the run diverges (it does at 10 cells per diameter). Runs `total_units` convective time units (D/U; 1 unit = 0.1 s of the
 /// benchmark's physical time) and analyses the last `window_units`.
-pub fn run_2d2(s: Setup, total_units: f64, window_units: f64) -> Unsteady {
+pub fn run_2d2(s: Setup, total_units: f64, window_units: f64) -> Result<Unsteady, String> {
     let start = std::time::Instant::now();
     let mut rig = rig(s, 100.0, 8.0);
     let unit = rig.n / s.u_mean;
@@ -176,6 +176,9 @@ pub fn run_2d2(s: Setup, total_units: f64, window_units: f64) -> Unsteady {
     for _ in 0..steps {
         rig.ch.step();
         let (d, l) = rig.ch.coefficients(rig.n);
+        if !d.is_finite() {
+            return Err(format!("diverged after {} steps (tau = {:.4}): under-resolved at {} cells per diameter", rig.ch.sim.t, crate::lattice::tau_for(s.u_mean * rig.n / 100.0), s.n));
+        }
         series.cd.push(d);
         series.cl.push(l);
         dp_series.push(rig.pressure_drop());
@@ -191,7 +194,7 @@ pub fn run_2d2(s: Setup, total_units: f64, window_units: f64) -> Unsteady {
     let spread = if tops.is_empty() { f64::NAN } else { (cl_max - fold(&tops, f64::MAX, f64::min)) / signal::mean(&tops) };
     // Pressure difference half a period after each lift maximum (the benchmark's definition).
     let half: Vec<f64> = pk.iter().map(|p| p.0 + 0.5 * period).filter(|&t| t < (dp.len() - 1) as f64).map(|t| signal::sample_at(dp, t)).collect();
-    Unsteady {
+    Ok(Unsteady {
         n: s.n,
         cd_max: fold(cd, f64::MIN, f64::max),
         cd_min: fold(cd, f64::MAX, f64::min),
@@ -207,7 +210,7 @@ pub fn run_2d2(s: Setup, total_units: f64, window_units: f64) -> Unsteady {
         series,
         dp_series,
         window_start: i0,
-    }
+    })
 }
 
 /// Times `steps` steps of the 2D-2 set-up (forces evaluated every step, as in a real run).

@@ -192,7 +192,7 @@ fn demo(a: &Args) -> Result<(), String> {
     let out = a.out("results/demo")?;
     println!("{}", tr("[1/2] Benchmark: flow past a cylinder in a channel, Schafer & Turek (1996) case 2D-2, Re = 100", "[1/2] 標準考題：管道裡的圓柱繞流，Schäfer 與 Turek（1996）的 2D-2 題，雷諾數 100"));
     println!("{}", tr("      20 cells per diameter (coarse on purpose, so it finishes in seconds).", "      圓柱直徑只切成 20 格（故意用粗網格，幾秒就跑完）。"));
-    let o = cylinder::run_2d2(cylinder::Setup { n: 20, u_mean: 0.05, collision: TRT, threads }, 100.0, 20.0);
+    let o = cylinder::run_2d2(cylinder::Setup { n: 20, u_mean: 0.05, collision: TRT, threads }, 100.0, 20.0)?;
     println!("      {:<10} {:>10} {:>22}", tr("quantity", "物理量"), tr("computed", "算出來"), tr("published interval", "論文給的參考區間"));
     for (name, v, key) in [("c_D max", o.cd_max, "cd_max"), ("c_L max", o.cl_max, "cl_max"), ("St", o.st, "st"), ("dP", o.dp, "dp")] {
         let iv = reference::st_interval("2D-2", key);
@@ -291,9 +291,9 @@ fn validate(a: &Args) -> Result<(), String> {
     }
     if want("2d2") {
         let mut t = Table::new(&suite::UNSTEADY_HEADER);
-        let runs: &[(usize, f64)] = if quick { &[(10, 0.05)] } else { &[(10, 0.05), (20, 0.05), (40, 0.05), (80, 0.05), (20, 0.025)] };
+        let runs: &[(usize, f64)] = if quick { &[(20, 0.05)] } else { &[(20, 0.05), (40, 0.05), (80, 0.05), (20, 0.025)] };
         for &(n, u) in runs {
-            let (r, o) = suite::unsteady_run(n, u, 110.0, threads);
+            let (r, o) = suite::unsteady_run(n, u, 110.0, threads)?;
             println!("2D-2        n {n:>3} u {u}  cDmax {}  cLmax {}  St {}  dP {}  ({} s)", r[2], r[4], r[6], r[8], r[12]);
             suite::unsteady_series_table(&o).write(&out.join(format!("cylinder_2d2_series_n{n}_u{u}.csv"))).map_err(|e| e.to_string())?;
             t.push(r);

@@ -173,8 +173,8 @@ pub fn steady_row(n: usize, u_mean: f64, threads: usize) -> Vec<String> {
 pub const UNSTEADY_HEADER: [&str; 13] =
     ["n", "u_mean", "cd_max", "cd_min", "cl_max", "cl_min", "st", "st_crossings", "dp", "peak_spread", "periods", "steps", "seconds"];
 
-pub fn unsteady_run(n: usize, u_mean: f64, units: f64, threads: usize) -> (Vec<String>, cylinder::Unsteady) {
-    let o = cylinder::run_2d2(cylinder::Setup { n, u_mean, collision: TRT, threads }, units, 20.0);
+pub fn unsteady_run(n: usize, u_mean: f64, units: f64, threads: usize) -> Result<(Vec<String>, cylinder::Unsteady), String> {
+    let o = cylinder::run_2d2(cylinder::Setup { n, u_mean, collision: TRT, threads }, units, 20.0)?;
     let row = vec![
         n.to_string(),
         u_mean.to_string(),
@@ -190,7 +190,7 @@ pub fn unsteady_run(n: usize, u_mean: f64, units: f64, threads: usize) -> (Vec<S
         o.steps.to_string(),
         format!("{:.1}", o.seconds),
     ];
-    (row, o)
+    Ok((row, o))
 }
 
 /// The analysed window of a 2D-2 run, thinned to at most ~3000 samples: time (in D/U), c_D,

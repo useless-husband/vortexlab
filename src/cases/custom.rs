@@ -114,10 +114,10 @@ mod tests {
     #[test]
     fn unusable_pictures_are_rejected_with_a_reason() {
         let blank = Image { w: 50, h: 50, rgba: vec![255; 50 * 50 * 4] };
-        assert!(place(&blank, 40, 0.0, 100.0, 0.05, Collision::Bgk, 1).unwrap_err().contains("no dark shape"));
+        assert!(place(&blank, 40, 0.0, 100.0, 0.05, Collision::Bgk, 1).err().unwrap().contains("no dark shape"));
         let sliver = Polygon { pts: vec![[-90.0, -2.0], [90.0, -2.0], [90.0, 2.0], [-90.0, 2.0]] };
         let img = picture(&sliver, 200, 40, 1.0);
-        assert!(place(&img, 40, 0.0, 100.0, 0.05, Collision::Bgk, 1).unwrap_err().contains("cells thick"));
+        assert!(place(&img, 40, 0.0, 100.0, 0.05, Collision::Bgk, 1).err().unwrap().contains("cells thick"));
     }
 
     #[test]
