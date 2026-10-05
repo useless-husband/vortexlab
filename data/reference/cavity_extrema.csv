@@ -1,0 +1,27 @@
+# Extrema of the centreline velocity profiles of the lid-driven cavity (lid velocity +1).
+# "ghia": the underscored entries of Tables I and II of Ghia, Ghia & Shin (1982) (129 x 129 finite differences).
+# "botella-peyret": O. Botella, R. Peyret, "Benchmark spectral results on the lid-driven cavity flow",
+#   Computers & Fluids 27 (1998) 421-433, doi:10.1016/S0045-7930(98)00002-4 (Chebyshev collocation, N = 160).
+#   The paper itself is paywalled; these values are quoted second-hand from Tables 11-13 of
+#   C. H. Marchi, R. Suero, L. K. Araki, "The Lid-Driven Square Cavity Flow: Numerical Solution with a
+#   1024 x 1024 Grid", J. Braz. Soc. Mech. Sci. & Eng. 31 (2009) 186-198, which lists them for u_lid = +1.
+# "marchi": the same paper's own 1024 x 1024 + Richardson-extrapolated values.
+# source,re,quantity,value,position
+ghia,100,u_min,-0.21090,0.4531
+ghia,100,v_max,0.17527,0.2344
+ghia,100,v_min,-0.24533,0.8047
+ghia,1000,u_min,-0.38289,0.1719
+ghia,1000,v_max,0.37095,0.1563
+ghia,1000,v_min,-0.51550,0.9063
+botella-peyret,100,u_min,-0.2140424,0.4581
+botella-peyret,100,v_max,0.1795728,0.2370
+botella-peyret,100,v_min,-0.2538030,0.8104
+botella-peyret,1000,u_min,-0.3885698,0.1717
+botella-peyret,1000,v_max,0.3769447,0.1578
+botella-peyret,1000,v_min,-0.5270771,0.9092
+marchi,100,u_min,-0.2140417,0.45850
+marchi,100,v_max,0.179572814,0.23682
+marchi,100,v_min,-0.253804,0.81006
+marchi,1000,u_min,-0.3885721,0.17139
+marchi,1000,v_max,0.3769471,0.15771
+marchi,1000,v_min,-0.527056,0.90967

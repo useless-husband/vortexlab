@@ -1,0 +1,30 @@
+# DFG benchmark "flow around a cylinder", 2-D cases.
+# "interval" rows: the reference intervals ("estimated intervals for the exact results") in the last rows of
+#   Table 3 (case 2D-1) and Table 4 (case 2D-2) of
+#   M. Schaefer, S. Turek, "Benchmark Computations of Laminar Flow Around a Cylinder", in E. H. Hirschel (ed.),
+#   Flow Simulation with High-Performance Computers II, Notes on Numerical Fluid Mechanics 52, Vieweg, 1996,
+#   pp. 547-566, doi:10.1007/978-3-322-89849-4_39.
+# "later" rows: more precise values published afterwards by the same group (TU Dortmund FeatFlow benchmark pages).
+#   2D-1: spectral results of Nabh (1998) as listed on the FeatFlow "DFG benchmark 2D-1" page.
+#   2D-2: maxima over the FeatFlow "new reference results" time series (level 6, time step 1/1600 s,
+#   file 20141124_dfg_bench2_official.zip): plain maximum over the samples; dp is the pressure difference half
+#   a period after the lift maximum, read from the same file. For "later" rows lower = upper = the value.
+# Units: c_D, c_L, St dimensionless; L_a in m; dP in Pa (rho = 1 kg/m^3).
+# kind,case,quantity,lower,upper
+interval,2D-1,cd,5.5700,5.5900
+interval,2D-1,cl,0.0104,0.0110
+interval,2D-1,la,0.0842,0.0852
+interval,2D-1,dp,0.1172,0.1176
+interval,2D-2,cd_max,3.2200,3.2400
+interval,2D-2,cl_max,0.9900,1.0100
+interval,2D-2,st,0.2950,0.3050
+interval,2D-2,dp,2.4600,2.5000
+later,2D-1,cd,5.57953523384,5.57953523384
+later,2D-1,cl,0.010618948146,0.010618948146
+later,2D-1,dp,0.11752016697,0.11752016697
+later,2D-2,cd_max,3.227393,3.227393
+later,2D-2,cd_min,3.164264,3.164264
+later,2D-2,cl_max,0.986571,0.986571
+later,2D-2,cl_min,-1.021288,-1.021288
+later,2D-2,st,0.30184,0.30184
+later,2D-2,dp,2.4848,2.4848

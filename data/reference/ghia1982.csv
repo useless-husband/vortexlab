@@ -1,0 +1,44 @@
+# Lid-driven cavity centreline velocities, uniform 129 x 129 grid.
+# Source: U. Ghia, K. N. Ghia, C. T. Shin, "High-Re Solutions for Incompressible Flow Using the
+#   Navier-Stokes Equations and a Multigrid Method", Journal of Computational Physics 48 (1982) 387-411,
+#   doi:10.1016/0021-9991(82)90058-4. Table I (p. 398): u along the vertical line through the geometric
+#   centre; Table II (p. 399): v along the horizontal line through the centre. Lid at y = 1 moving with u = 1.
+# Transcribed 2026-10-05 from a scan of the paper and checked digit by digit against three independent
+#   transcriptions (see docs/REFERENCES.md). One widely copied transcription has -0.51500 instead of
+#   -0.51550 for Table II, Re = 1000, x = 0.9063; the paper prints -0.51550.
+# Coordinates are (grid point - 1)/128; the paper prints them rounded to four decimals.
+# table,grid_point,coordinate,re100,re1000
+u,129,1.0000000,1.00000,1.00000
+u,126,0.9765625,0.84123,0.65928
+u,125,0.9687500,0.78871,0.57492
+u,124,0.9609375,0.73722,0.51117
+u,123,0.9531250,0.68717,0.46604
+u,110,0.8515625,0.23151,0.33304
+u,95,0.7343750,0.00332,0.18719
+u,80,0.6171875,-0.13641,0.05702
+u,65,0.5000000,-0.20581,-0.06080
+u,59,0.4531250,-0.21090,-0.10648
+u,37,0.2812500,-0.15662,-0.27805
+u,23,0.1718750,-0.10150,-0.38289
+u,14,0.1015625,-0.06434,-0.29730
+u,10,0.0703125,-0.04775,-0.22220
+u,9,0.0625000,-0.04192,-0.20196
+u,8,0.0546875,-0.03717,-0.18109
+u,1,0.0000000,0.00000,0.00000
+v,129,1.0000000,0.00000,0.00000
+v,125,0.9687500,-0.05906,-0.21388
+v,124,0.9609375,-0.07391,-0.27669
+v,123,0.9531250,-0.08864,-0.33714
+v,122,0.9453125,-0.10313,-0.39188
+v,117,0.9062500,-0.16914,-0.51550
+v,111,0.8593750,-0.22445,-0.42665
+v,104,0.8046875,-0.24533,-0.31966
+v,65,0.5000000,0.05454,0.02526
+v,31,0.2343750,0.17527,0.32235
+v,30,0.2265625,0.17507,0.33075
+v,21,0.1562500,0.16077,0.37095
+v,13,0.0937500,0.12317,0.32627
+v,11,0.0781250,0.10890,0.30353
+v,10,0.0703125,0.10091,0.29012
+v,9,0.0625000,0.09233,0.27485
+v,1,0.0000000,0.00000,0.00000
