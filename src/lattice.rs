@@ -82,9 +82,15 @@ pub fn collide_bgk(f: &[f64; Q], omega: f64) -> [f64; Q] {
     let inv = 1.0 / rho;
     let feq = equilibrium(rho, jx * inv, jy * inv);
     let mut out = [0.0; Q];
-    for i in 0..Q {
+    let mut moving = 0.0;
+    for i in 1..Q {
         out[i] = f[i] - omega * (f[i] - feq[i]);
+        moving += feq[i];
     }
+    // Rest population: its equilibrium is taken as "whatever is left of rho". Algebraically
+    // the same as feq[0], but it keeps the sum of the equilibrium equal to rho to the last
+    // bit instead of drifting with the rounding of the weights 4/9, 1/9, 1/36.
+    out[0] = f[0] - omega * (f[0] - (rho - moving));
     out
 }
 
@@ -97,15 +103,18 @@ pub fn collide_trt(f: &[f64; Q], op: f64, om: f64) -> [f64; Q] {
     let (ux, uy) = (jx * inv, jy * inv);
     let usq = 1.5 * (ux * ux + uy * uy);
     let mut out = [0.0; Q];
-    out[0] = f[0] - op * (f[0] - W[0] * rho * (1.0 - usq));
+    let mut moving = 0.0;
     for &(a, b) in &PAIRS {
         let cu = 3.0 * (CX[a] as f64 * ux + CY[a] as f64 * uy);
         let wr = W[a] * rho;
-        let dp = op * (0.5 * (f[a] + f[b]) - wr * (1.0 + 0.5 * cu * cu - usq));
+        let eq = wr * (1.0 + 0.5 * cu * cu - usq);
+        let dp = op * (0.5 * (f[a] + f[b]) - eq);
         let dm = om * (0.5 * (f[a] - f[b]) - wr * cu);
         out[a] = f[a] - dp - dm;
         out[b] = f[b] - dp + dm;
+        moving += 2.0 * eq;
     }
+    out[0] = f[0] - op * (f[0] - (rho - moving)); // see collide_bgk
     out
 }
 
@@ -124,19 +133,25 @@ pub fn collide_forced(f: &[f64; Q], op: f64, om: f64, gx: f64, gy: f64) -> [f64;
     let uf = 3.0 * (ux * fx + uy * fy);
     let (kp, km) = (1.0 - 0.5 * op, 1.0 - 0.5 * om);
     let mut out = [0.0; Q];
-    out[0] = f[0] - op * (f[0] - W[0] * rho * (1.0 - usq)) - kp * W[0] * uf;
+    let (mut moving, mut source) = (0.0, 0.0);
     for &(a, b) in &PAIRS {
         let (cx, cy) = (CX[a] as f64, CY[a] as f64);
         let cu = 3.0 * (cx * ux + cy * uy);
         let cf = 3.0 * (cx * fx + cy * fy);
         let wr = W[a] * rho;
-        let dp = op * (0.5 * (f[a] + f[b]) - wr * (1.0 + 0.5 * cu * cu - usq));
+        let eq = wr * (1.0 + 0.5 * cu * cu - usq);
+        let dp = op * (0.5 * (f[a] + f[b]) - eq);
         let dm = om * (0.5 * (f[a] - f[b]) - wr * cu);
         let sp = kp * W[a] * (cu * cf - uf);
         let sm = km * W[a] * cf;
         out[a] = f[a] - dp - dm + sp + sm;
         out[b] = f[b] - dp + dm + sp - sm;
+        moving += 2.0 * eq;
+        source += 2.0 * sp;
     }
+    // Rest population: equilibrium and source are the remainders (see collide_bgk), which is
+    // algebraically W[0] rho (1 - usq) and -kp W[0] uf.
+    out[0] = f[0] - op * (f[0] - (rho - moving)) - source;
     out
 }
 

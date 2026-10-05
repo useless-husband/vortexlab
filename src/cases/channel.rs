@@ -26,6 +26,10 @@ pub enum Inflow {
     /// Uniform stream; the channel walls move with it, as for a body towed through a tank of
     /// still fluid, so no boundary layer grows on them.
     Uniform { u: f64 },
+    /// Uniform stream between sound-absorbing side boundaries ([`Kind::Radiating`]): for the
+    /// flow they act almost like the moving walls of `Uniform`, but the cross-stream sound
+    /// wave that an oscillating lift force keeps exciting leaves instead of resonating.
+    UniformOpen { u: f64 },
 }
 
 /// A short twist of the body about (cx, cy) that breaks the mirror symmetry of the set-up, so
@@ -72,7 +76,7 @@ impl Channel {
         b.collision = collision;
         let profile = move |y: f64| -> f64 {
             match inflow {
-                Inflow::Uniform { u } => u,
+                Inflow::Uniform { u } | Inflow::UniformOpen { u } => u,
                 Inflow::Parabolic { u_mean } => {
                     let s = (y - 0.5).clamp(0.0, h);
                     6.0 * u_mean * s * (h - s) / (h * h)
@@ -84,11 +88,17 @@ impl Channel {
         let walls = match inflow {
             Inflow::Parabolic { .. } => b.add_static_wall(),
             Inflow::Uniform { u } => b.add(Kind::Wall(Wall { velocity: Some(Box::new(move |_, _| [u, 0.0])), vgroup: 1, ..Wall::default() })),
+            Inflow::UniformOpen { .. } => b.add(Kind::Radiating(1.0)),
         };
         b.fill_rect(0, 0, 0, ny - 1, inlet);
         b.fill_rect(nx - 1, nx - 1, 0, ny - 1, outlet);
-        b.fill_rect(0, nx - 1, 0, 0, walls);
-        b.fill_rect(0, nx - 1, ny - 1, ny - 1, walls);
+        b.fill_rect(1, nx - 2, 0, 0, walls);
+        b.fill_rect(1, nx - 2, ny - 1, ny - 1, walls);
+        if matches!(inflow, Inflow::Parabolic { .. } | Inflow::Uniform { .. }) {
+            // Solid walls also own the four corner cells.
+            b.fill_rect(0, nx - 1, 0, 0, walls);
+            b.fill_rect(0, nx - 1, ny - 1, ny - 1, walls);
+        }
         let spin = kick.map(|k| -> crate::sim::VelocityFn { Box::new(move |x, y| [-(y - k.cy), x - k.cx]) });
         let body = b.add(Kind::Wall(Wall { velocity: spin, vgroup: 2, fgroup: Some(0), shape: Some(body) }));
         b.fill_shape(body);
@@ -97,18 +107,16 @@ impl Channel {
             sim.init(|_, y| (1.0, profile(y as f64), 0.0));
         }
         let u_ref = match inflow {
-            Inflow::Uniform { u } => u,
+            Inflow::Uniform { u } | Inflow::UniformOpen { u } => u,
             Inflow::Parabolic { u_mean } => u_mean,
         };
-        Channel { sim, ramp_steps, kick, u_ref, absorbing_outlet: std::env::var("REFLECT").is_err() }
+        Channel { sim, ramp_steps, kick, u_ref, absorbing_outlet: true }
     }
 
     pub fn step(&mut self) {
         let t = self.sim.t;
         self.sim.vscale[1] = ramp(t, self.ramp_steps);
-        if self.absorbing_outlet {
-            self.sim.outflow_target = Some(self.u_ref * self.sim.vscale[1]);
-        }
+        self.sim.outflow_target = self.absorbing_outlet.then_some(self.u_ref * self.sim.vscale[1]);
         self.sim.vscale[2] = match self.kick {
             Some(k) if t >= k.start && t < k.start + k.duration => {
                 let s = (t - k.start) as f64 / k.duration as f64;

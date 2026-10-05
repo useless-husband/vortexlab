@@ -1,4 +1,5 @@
-//! The "towing tank": a body in a uniform stream between walls that move with the stream.
+//! The "towing tank": a body in a uniform stream between side boundaries that move with the
+//! stream (solid walls, or sound-absorbing boundaries that behave almost like them).
 //! Used for the corner-modification experiment and for user-supplied shapes.
 
 use crate::cases::channel::{Channel, Inflow, Kick, Series, Spec, Stats};
@@ -25,6 +26,9 @@ pub struct Tunnel {
     pub length: f64,
     pub collision: Collision,
     pub threads: usize,
+    /// Side boundaries: `true` = sound-absorbing ([`Inflow::UniformOpen`]), `false` = solid
+    /// walls moving with the stream.
+    pub open_sides: bool,
 }
 
 impl Tunnel {
@@ -52,7 +56,7 @@ impl Tunnel {
         let spec = Spec {
             nx,
             ny,
-            inflow: Inflow::Uniform { u: self.u },
+            inflow: if self.open_sides { Inflow::UniformOpen { u: self.u } } else { Inflow::Uniform { u: self.u } },
             nu: self.u * self.d as f64 / self.re,
             collision: self.collision,
             body,

@@ -33,7 +33,7 @@ pub fn place(image: &Image, cells: usize, angle_deg: f64, re: f64, u: f64, colli
         return Err(format!("the shape is only {d} cells thick across the flow at this resolution; use more cells (--cells) or turn it (--angle)"));
     }
     let length = (x1 - x0) / d as f64;
-    let tunnel = Tunnel { d, re, u, upstream: 5.0 + 0.5 * length, downstream: 14.0 + 0.5 * length, height: 10.0, length, collision, threads };
+    let tunnel = Tunnel { d, re, u, upstream: 5.0 + 0.5 * length, downstream: 14.0 + 0.5 * length, height: 10.0, length, collision, threads, open_sides: true };
     let (nx, ny) = tunnel.grid();
     if nx * ny > 6_000_000 {
         return Err(format!("the grid would be {nx} x {ny} cells, too large; use fewer cells (--cells)"));

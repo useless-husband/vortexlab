@@ -54,6 +54,12 @@ pub enum Kind {
     Wall(Wall),
     /// Open boundary held at this density (pressure = density / 3).
     Pressure(f64),
+    /// Open boundary that is nearly a free-slip wall for the flow but lets sound out: its
+    /// density is the given value plus u_n / c_s, with u_n the local outward normal velocity
+    /// (the characteristic relation of an outgoing sound wave). A hydrodynamic pressure
+    /// difference dp drives only u_n = dp / (rho c_s) through it, a fraction ~Mach of what a
+    /// free boundary would pass, so at low Mach number the flow sees a wall.
+    Radiating(f64),
 }
 
 pub const FLUID: u8 = 0;
@@ -150,6 +156,10 @@ struct Link {
     cu6: f64,
     /// Pressure links: boundary density.
     rho: f64,
+    /// Pressure links: outward normal, and whether the density follows the local normal
+    /// velocity (`Kind::Radiating`).
+    normal: [i8; 2],
+    radiating: bool,
 }
 
 struct BNode {
@@ -261,19 +271,19 @@ impl Sim {
                         _ => NONE,
                     };
                     let mut link =
-                        Link { dir: j as u8, kind: LINK_WALL, vgroup: 0, q: 0.5, behind, fgroup: NONE, uw: [0.0, 0.0], cu6: 0.0, rho: 1.0 };
+                        Link { dir: j as u8, kind: LINK_WALL, vgroup: 0, q: 0.5, behind, fgroup: NONE, uw: [0.0, 0.0], cu6: 0.0, rho: 1.0, normal: [0, 0], radiating: false };
                     match &b.kinds[kind as usize] {
                         Kind::Fluid => unreachable!(),
-                        Kind::Pressure(rho) => {
+                        Kind::Pressure(rho) | Kind::Radiating(rho) => {
                             link.kind = LINK_PRESSURE;
                             link.rho = *rho;
-                            let normal = if wrap(x as isize + cx, y as isize).map(|i| matches!(b.kinds[b.cell[i] as usize], Kind::Pressure(_))) == Some(true) {
-                                (cx as i8, 0)
-                            } else {
-                                (0, cy as i8)
-                            };
-                            if pnodes.last().map(|p: &(usize, i8, i8)| p.0) != Some(idx) {
-                                pnodes.push((idx, normal.0, normal.1));
+                            link.radiating = matches!(&b.kinds[kind as usize], Kind::Radiating(_));
+                            // Outward normal: along x if the cell beside the node in x is open
+                            // boundary too, otherwise along y.
+                            let open = |i: Option<usize>| i.map(|i| matches!(b.kinds[b.cell[i] as usize], Kind::Pressure(_) | Kind::Radiating(_))) == Some(true);
+                            link.normal = if open(wrap(x as isize + cx, y as isize)) { [cx as i8, 0] } else { [0, cy as i8] };
+                            if !link.radiating && pnodes.last().map(|p: &(usize, i8, i8)| p.0) != Some(idx) {
+                                pnodes.push((idx, link.normal[0], link.normal[1]));
                             }
                         }
                         Kind::Wall(wall) => {
@@ -442,7 +452,9 @@ impl Sim {
                 let out = a[j * n + idx];
                 let scale = vscale[l.vgroup as usize];
                 let back = if l.kind == LINK_WALL {
-                    let corr = l.cu6 * scale;
+                    // Momentum given to the fluid by a moving wall: 6 w rho (c . u_w), with the
+                    // local fluid density standing in for the density at the wall.
+                    let corr = if l.cu6 != 0.0 { l.cu6 * scale * (f[0] + a[idx + n] + a[idx + 2 * n] + a[idx + 3 * n] + a[idx + 4 * n] + a[idx + 5 * n] + a[idx + 6 * n] + a[idx + 7 * n] + a[idx + 8 * n]) } else { 0.0 };
                     if l.q >= 0.5 {
                         let k = 0.5 / l.q;
                         k * (out - corr) + (1.0 - k) * a[i * n + idx]
@@ -457,7 +469,8 @@ impl Sim {
                     // the boundary density, using the local velocity as the wall velocity.
                     let (ux, uy) = velocity(idx);
                     let cu = 3.0 * (CX[j] as f64 * ux + CY[j] as f64 * uy);
-                    -out + 2.0 * W[j] * (l.rho + drho) * (1.0 + 0.5 * cu * cu - 1.5 * (ux * ux + uy * uy))
+                    let rho_w = if l.radiating { l.rho + (l.normal[0] as f64 * ux + l.normal[1] as f64 * uy) / CS2.sqrt() } else { l.rho + drho };
+                    -out + 2.0 * W[j] * rho_w * (1.0 + 0.5 * cu * cu - 1.5 * (ux * ux + uy * uy))
                 };
                 f[i] = back;
                 if l.fgroup != NONE {
@@ -506,28 +519,33 @@ impl Sim {
         (rho, jx / rho - 0.5 * self.accel[0], jy / rho - 0.5 * self.accel[1])
     }
 
-    /// Sum of density over fluid nodes.
+    /// Sum of density over fluid nodes (compensated summation, so that conservation can be
+    /// checked to rounding of the solver rather than of this sum).
     pub fn total_mass(&self) -> f64 {
-        let mut m = 0.0;
+        let mut m = Neumaier::default();
         for idx in 0..self.n {
             if self.flag[idx] != 2 {
-                m += moments(&self.pops(idx)).0;
+                for i in 0..Q {
+                    m.add(self.a[i * self.n + idx]);
+                }
             }
         }
-        m
+        m.value()
     }
 
     /// Sum of (post-collision) momentum over fluid nodes.
     pub fn total_momentum(&self) -> [f64; 2] {
-        let mut p = [0.0, 0.0];
+        let (mut px, mut py) = (Neumaier::default(), Neumaier::default());
         for idx in 0..self.n {
             if self.flag[idx] != 2 {
-                let (_, jx, jy) = moments(&self.pops(idx));
-                p[0] += jx;
-                p[1] += jy;
+                for i in 1..Q {
+                    let f = self.a[i * self.n + idx];
+                    px.add(CX[i] as f64 * f);
+                    py.add(CY[i] as f64 * f);
+                }
             }
         }
-        p
+        [px.value(), py.value()]
     }
 
     /// Largest velocity magnitude in the fluid; NaN if the run has blown up.
@@ -637,6 +655,24 @@ impl Sim {
 
     pub fn periodic(&self) -> (bool, bool) {
         self.periodic
+    }
+}
+
+/// Kahan-Babuska-Neumaier compensated summation.
+#[derive(Default)]
+struct Neumaier {
+    sum: f64,
+    comp: f64,
+}
+
+impl Neumaier {
+    fn add(&mut self, x: f64) {
+        let t = self.sum + x;
+        self.comp += if self.sum.abs() >= x.abs() { (self.sum - t) + x } else { (x - t) + self.sum };
+        self.sum = t;
+    }
+    fn value(&self) -> f64 {
+        self.sum + self.comp
     }
 }
 

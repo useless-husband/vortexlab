@@ -202,7 +202,7 @@ fn demo(a: &Args) -> Result<(), String> {
     println!("      ({:.0} s; {})", o.seconds, tr("finer grids land closer: see the report", "網格越細越接近，完整結果在報告裡"));
     println!();
     println!("{}", tr("[2/2] Vortex street behind a circular cylinder in a uniform stream, Re = 150", "[2/2] 均勻氣流中圓柱後面的渦街，雷諾數 150"));
-    let t = Tunnel { d: 30, re: 150.0, u: 0.08, upstream: 6.0, downstream: 16.0, height: 10.0, length: 1.0, collision: TRT, threads };
+    let t = Tunnel { d: 30, re: 150.0, u: 0.08, upstream: 6.0, downstream: 16.0, height: 10.0, length: 1.0, collision: TRT, threads, open_sides: true };
     let (cx, cy) = t.centre();
     let o = t.experiment(Box::new(Circle { cx, cy, r: 15.0 }), 90.0, 50.0, true, &mut |d, s| {
         if (d * 20.0).round() as usize % 4 == 0 {
@@ -313,7 +313,7 @@ fn corners(a: &Args) -> Result<(), String> {
     let units_total = a.get("units", 140.0)?;
     let tag = a.get("tag", "main".to_string())?;
     let which = a.get("shapes", "all".to_string())?;
-    let tunnel = Tunnel { d, re, u, upstream: a.get("upstream", 8.0)?, downstream: a.get("downstream", 16.0)?, height: a.get("height", 20.0)?, length: 1.0, collision: TRT, threads };
+    let tunnel = Tunnel { d, re, u, upstream: a.get("upstream", 10.0)?, downstream: a.get("downstream", 18.0)?, height: a.get("height", 20.0)?, length: 1.0, collision: TRT, threads, open_sides: a.get("sides", "open".to_string())? != "walls" };
     let study = CornerStudy { tunnel, b, units: units_total, discard: a.get("discard", 0.5 * units_total)? };
     let path = out.join(format!("corners_{tag}.csv"));
     // Keep rows of shapes not re-run this time, so sections can be run one at a time.
