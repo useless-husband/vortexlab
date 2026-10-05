@@ -76,7 +76,15 @@ pub fn poiseuille_study(rows: &[usize]) -> Table {
         let orders = poiseuille::observed_orders(&out);
         for (k, o) in out.iter().enumerate() {
             let order = if k == 0 { String::new() } else { format!("{:.3}", orders[k - 1]) };
-            t.push(vec![name.into(), o.rows.to_string(), q.to_string(), f(o.l2), order, format!("{:.12}", o.force_balance), o.steps.to_string()]);
+            t.push(vec![
+                name.into(),
+                o.rows.to_string(),
+                q.to_string(),
+                f(o.l2),
+                order,
+                format!("{:.12}", o.force_balance),
+                o.steps.to_string(),
+            ]);
         }
     }
     t
@@ -104,8 +112,25 @@ pub struct CavityRun {
     pub outcome: cavity::Outcome,
 }
 
-pub const CAVITY_HEADER: [&str; 17] =
-    ["re", "n", "u_lid", "steps", "converged", "seconds", "max_dev_u", "max_dev_v", "rms_dev", "u_min", "u_min_y", "v_max", "v_max_x", "v_min", "v_min_x", "worst_point", "worst_ref"];
+pub const CAVITY_HEADER: [&str; 17] = [
+    "re",
+    "n",
+    "u_lid",
+    "steps",
+    "converged",
+    "seconds",
+    "max_dev_u",
+    "max_dev_v",
+    "rms_dev",
+    "u_min",
+    "u_min_y",
+    "v_max",
+    "v_max_x",
+    "v_min",
+    "v_min_x",
+    "worst_point",
+    "worst_ref",
+];
 
 /// One cavity run compared with Ghia's table: maximum and RMS deviation over the 2 x 15
 /// interior tabulated points (in units of the lid velocity), plus the profile extrema.
@@ -167,7 +192,18 @@ pub const STEADY_HEADER: [&str; 10] = ["n", "u_mean", "cd", "cl", "dp", "la", "r
 
 pub fn steady_row(n: usize, u_mean: f64, threads: usize) -> Vec<String> {
     let o = cylinder::run_2d1(cylinder::Setup { n, u_mean, collision: TRT, threads }, 300.0, 1e-6);
-    vec![n.to_string(), u_mean.to_string(), f(o.cd), f(o.cl), f(o.dp), f(o.la), f(o.residual), o.steps.to_string(), o.converged.to_string(), format!("{:.1}", o.seconds)]
+    vec![
+        n.to_string(),
+        u_mean.to_string(),
+        f(o.cd),
+        f(o.cl),
+        f(o.dp),
+        f(o.la),
+        f(o.residual),
+        o.steps.to_string(),
+        o.converged.to_string(),
+        format!("{:.1}", o.seconds),
+    ]
 }
 
 pub const UNSTEADY_HEADER: [&str; 13] =
@@ -217,7 +253,13 @@ pub struct CornerStudy {
 
 impl CornerStudy {
     pub fn shapes(&self) -> Vec<Corner> {
-        vec![Corner::Sharp, Corner::Chamfered(self.b), Corner::Rounded(self.b), Corner::Recessed(self.b), Corner::DoubleRecessed(0.5 * self.b)]
+        vec![
+            Corner::Sharp,
+            Corner::Chamfered(self.b),
+            Corner::Rounded(self.b),
+            Corner::Recessed(self.b),
+            Corner::DoubleRecessed(0.5 * self.b),
+        ]
     }
 }
 

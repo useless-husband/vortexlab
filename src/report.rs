@@ -55,7 +55,10 @@ fn table(head: &[&str], rows: &[(Vec<String>, bool)]) -> String {
 }
 
 fn fig(title: &str, body: &str, caption: &str) -> String {
-    format!("<div class=\"fig\"><h4>{title}</h4>{body}{}</div>", if caption.is_empty() { String::new() } else { format!("<p>{caption}</p>") })
+    format!(
+        "<div class=\"fig\"><h4>{title}</h4>{body}{}</div>",
+        if caption.is_empty() { String::new() } else { format!("<p>{caption}</p>") }
+    )
 }
 
 /// A value with a check or cross against an interval, and how far outside it is.
@@ -93,7 +96,13 @@ fn poiseuille(dir: &Path) -> String {
         let exact = pts.iter().all(|p| p.1 < 1e-9);
         for &r in &idx {
             rows.push((
-                vec![esc(s), t.text(r, "rows").into(), format!("{:.3e}", t.num(r, "l2")), if exact { "exact".into() } else { t.text(r, "order").into() }, format!("{:.10}", t.num(r, "balance"))],
+                vec![
+                    esc(s),
+                    t.text(r, "rows").into(),
+                    format!("{:.3e}", t.num(r, "l2")),
+                    if exact { "exact".into() } else { t.text(r, "order").into() },
+                    format!("{:.10}", t.num(r, "balance")),
+                ],
                 false,
             ));
         }
@@ -124,7 +133,8 @@ fn cavity(dir: &Path) -> String {
         let n = t.num(best, "n") as usize;
         let Some(p) = Table::read(&dir.join(format!("cavity_profile_re{re}_n{n}.csv"))) else { continue };
         for (line, xl, yl) in [("u", "y", "u / U_lid on the vertical centreline"), ("v", "x", "v / U_lid on the horizontal centreline")] {
-            let pts: Vec<(f64, f64)> = (0..p.rows.len()).filter(|&r| p.text(r, "line") == line).map(|r| (p.num(r, "s"), p.num(r, "value"))).collect();
+            let pts: Vec<(f64, f64)> =
+                (0..p.rows.len()).filter(|&r| p.text(r, "line") == line).map(|r| (p.num(r, "s"), p.num(r, "value"))).collect();
             let mut plot = Plot::new(xl, yl);
             plot.desc = format!("Cavity centreline profile at Re {re} compared with the 17 tabulated points of Ghia et al.");
             plot.series.push(Series::line(&format!("vortexlab, {n} x {n}"), 1, pts));
@@ -188,7 +198,11 @@ fn cylinder(dir: &Path, file: &str, case: &str, quantities: &[Quantity], base_u:
     let mut head: Vec<String> = vec!["cells per D".into(), "lattice U".into()];
     head.extend(quantities.iter().map(|q| q.label.to_string()));
     let mut rows = Vec::new();
-    for r in 0..t.rows.len() {
+    let mut order: Vec<usize> = (0..t.rows.len()).collect();
+    order.sort_by(|&a, &b| {
+        (t.num(a, "u_mean") != base_u, t.num(a, "n") as usize).cmp(&(t.num(b, "u_mean") != base_u, t.num(b, "n") as usize))
+    });
+    for r in order {
         let mut cells = vec![t.text(r, "n").to_string(), t.text(r, "u_mean").to_string()];
         for q in quantities {
             cells.push(judged(t.num(r, q.key), q.decimals, reference::st_interval(case, q.key)));
@@ -199,7 +213,11 @@ fn cylinder(dir: &Path, file: &str, case: &str, quantities: &[Quantity], base_u:
     let mut later = vec!["later reference (FeatFlow)".to_string(), String::new()];
     for q in quantities {
         iv.push(reference::st_interval(case, q.key).map(|(a, b)| format!("{a:.0$} – {b:.0$}", q.decimals)).unwrap_or_else(|| "–".into()));
-        later.push(reference::st_later(case, q.key).map(|v| judged(v, q.decimals + 1, reference::st_interval(case, q.key))).unwrap_or_else(|| "–".into()));
+        later.push(
+            reference::st_later(case, q.key)
+                .map(|v| judged(v, q.decimals + 1, reference::st_interval(case, q.key)))
+                .unwrap_or_else(|| "–".into()),
+        );
     }
     rows.push((iv, true));
     rows.push((later, true));
@@ -207,7 +225,8 @@ fn cylinder(dir: &Path, file: &str, case: &str, quantities: &[Quantity], base_u:
     let mut figs = String::new();
     for q in quantities {
         let Some((lo, hi)) = reference::st_interval(case, q.key) else { continue };
-        let pts: Vec<(f64, f64)> = (0..t.rows.len()).filter(|&r| t.num(r, "u_mean") == base_u).map(|r| (t.num(r, "n"), t.num(r, q.key))).collect();
+        let pts: Vec<(f64, f64)> =
+            (0..t.rows.len()).filter(|&r| t.num(r, "u_mean") == base_u).map(|r| (t.num(r, "n"), t.num(r, q.key))).collect();
         let mut plot = Plot::new("cells per cylinder diameter", q.label);
         (plot.w, plot.h, plot.log_x) = (330.0, 230.0, true);
         plot.desc = format!("{} against resolution with the published reference interval as a band.", q.label);
@@ -320,8 +339,13 @@ fn corners(dir: &Path, out: &Path) -> Result<String, String> {
     o += "<p>Percentages are changes relative to the sharp square in the same run set.</p>";
     // Small multiples: one bar chart per measure.
     let mut figs = String::new();
-    for (k, (key, title, dec)) in [("cd_mean", "Mean drag coefficient", 3), ("cl_rms", "RMS lift coefficient", 3), ("st", "Strouhal number", 4)].iter().enumerate() {
-        let items: Vec<(String, f64)> = SHAPE_LABEL.iter().filter_map(|s| (0..t.rows.len()).find(|&r| t.text(r, "shape") == s.0).map(|r| (s.1.to_string(), t.num(r, key)))).collect();
+    for (k, (key, title, dec)) in
+        [("cd_mean", "Mean drag coefficient", 3), ("cl_rms", "RMS lift coefficient", 3), ("st", "Strouhal number", 4)].iter().enumerate()
+    {
+        let items: Vec<(String, f64)> = SHAPE_LABEL
+            .iter()
+            .filter_map(|s| (0..t.rows.len()).find(|&r| t.text(r, "shape") == s.0).map(|r| (s.1.to_string(), t.num(r, key))))
+            .collect();
         let base = items.first().map(|i| i.1);
         figs += &fig(title, &svg::bars(&items, k + 1, *dec, base, title), "Dashed line: the sharp square.");
     }
@@ -342,8 +366,14 @@ fn corners(dir: &Path, out: &Path) -> Result<String, String> {
         }
         std::fs::copy(dir.join(&file), out.join(&file)).map_err(|e| format!("copy {file}: {e}"))?;
         let r = (0..t.rows.len()).find(|&r| t.text(r, "shape") == shape);
-        let cap = r.map(|r| format!("C_D {:.3}, C_L' {:.3}, St {:.4}", t.num(r, "cd_mean"), t.num(r, "cl_rms"), t.num(r, "st"))).unwrap_or_default();
-        figs += &fig(&format!("{en} <span class=\"zh\">{zh}</span>"), &format!("<img src=\"{file}\" alt=\"Vorticity in the wake of the {en} section\" loading=\"lazy\">"), &cap);
+        let cap = r
+            .map(|r| format!("C_D {:.3}, C_L' {:.3}, St {:.4}", t.num(r, "cd_mean"), t.num(r, "cl_rms"), t.num(r, "st")))
+            .unwrap_or_default();
+        figs += &fig(
+            &format!("{en} <span class=\"zh\">{zh}</span>"),
+            &format!("<img src=\"{file}\" alt=\"Vorticity in the wake of the {en} section\" loading=\"lazy\">"),
+            &cap,
+        );
     }
     let _ = write!(o, "<div class=\"figs\">{figs}</div>");
     // Lift histories of the main set.
@@ -379,15 +409,36 @@ fn corners(dir: &Path, out: &Path) -> Result<String, String> {
         }
     }
     for r in reference::square_cylinder_literature() {
-        rows.push((vec![format!("Sohankar et al. 1998 ({})", esc(&r[0]["sohankar1998-".len()..])), r[2].clone(), format!("{:.1} %", 100.0 * r[3].parse::<f64>().unwrap_or(0.0)), "finite volume".into(), r[4].clone(), r[5].clone(), r[6].clone()], true));
+        rows.push((
+            vec![
+                format!("Sohankar et al. 1998 ({})", esc(&r[0]["sohankar1998-".len()..])),
+                r[2].clone(),
+                format!("{:.1} %", 100.0 * r[3].parse::<f64>().unwrap_or(0.0)),
+                "finite volume".into(),
+                r[4].clone(),
+                r[5].clone(),
+                r[6].clone(),
+            ],
+            true,
+        ));
     }
     o += "<h3>The plain square against published 2-D results</h3>";
     o += &table(&["source", "Re", "blockage", "resolution", "C_D", "St", "C_L'"], &rows);
     if tables.len() > 1 {
         o += "<h3>Other run sets (sensitivity)</h3>";
         for (tag, t) in &tables[1..] {
-            let _ = write!(o, "<p>Set “{}”: Re {}, {} cells / D, blockage {:.1} %, corner size {} D, U = {}.</p>", esc(tag), t.text(0, "re"), t.text(0, "d"), 100.0 * t.num(0, "blockage"), t.text(0, "b"), t.text(0, "u"));
-            o += &table(&["section", "mean drag C_D", "RMS lift C_L'", "Strouhal St", "St (zero crossings)", "RMS of C_D"], &corner_rows(t));
+            let _ = write!(
+                o,
+                "<p>Set “{}”: Re {}, {} cells / D, blockage {:.1} %, corner size {} D, U = {}.</p>",
+                esc(tag),
+                t.text(0, "re"),
+                t.text(0, "d"),
+                100.0 * t.num(0, "blockage"),
+                t.text(0, "b"),
+                t.text(0, "u")
+            );
+            o +=
+                &table(&["section", "mean drag C_D", "RMS lift C_L'", "Strouhal St", "St (zero crossings)", "RMS of C_D"], &corner_rows(t));
         }
     }
     Ok(o)
@@ -395,13 +446,30 @@ fn corners(dir: &Path, out: &Path) -> Result<String, String> {
 
 fn performance(dir: &Path) -> String {
     let mut rows = Vec::new();
-    let mut names: Vec<String> = std::fs::read_dir(dir).map(|rd| rd.flatten().map(|e| e.file_name().to_string_lossy().to_string()).filter(|n| n.starts_with("bench_") && n.ends_with(".csv")).collect()).unwrap_or_default();
+    let mut names: Vec<String> = std::fs::read_dir(dir)
+        .map(|rd| {
+            rd.flatten()
+                .map(|e| e.file_name().to_string_lossy().to_string())
+                .filter(|n| n.starts_with("bench_") && n.ends_with(".csv"))
+                .collect()
+        })
+        .unwrap_or_default();
     names.sort();
     for name in names {
         let Some(t) = Table::read(&dir.join(&name)) else { continue };
         let single = t.num(0, "mlups");
         for r in 0..t.rows.len() {
-            rows.push((vec![t.text(r, "grid").into(), t.text(r, "fluid_nodes").into(), t.text(r, "threads").into(), format!("{:.0}", t.num(r, "mlups")), format!("{:.2}x", t.num(r, "mlups") / single), t.text(r, "state_hash").into()], false));
+            rows.push((
+                vec![
+                    t.text(r, "grid").into(),
+                    t.text(r, "fluid_nodes").into(),
+                    t.text(r, "threads").into(),
+                    format!("{:.0}", t.num(r, "mlups")),
+                    format!("{:.2}x", t.num(r, "mlups") / single),
+                    t.text(r, "state_hash").into(),
+                ],
+                false,
+            ));
         }
     }
     if rows.is_empty() {
@@ -423,7 +491,9 @@ pub fn build(results: &Path, out: &Path) -> Result<(), String> {
     ];
     let q2 = [
         Quantity { key: "cd_max", label: "maximum drag c_D", decimals: 4 },
+        Quantity { key: "cd_min", label: "minimum drag c_D", decimals: 4 },
         Quantity { key: "cl_max", label: "maximum lift c_L", decimals: 4 },
+        Quantity { key: "cl_min", label: "minimum lift c_L", decimals: 4 },
         Quantity { key: "st", label: "Strouhal number", decimals: 4 },
         Quantity { key: "dp", label: "ΔP half a period after the lift maximum (Pa)", decimals: 4 },
     ];

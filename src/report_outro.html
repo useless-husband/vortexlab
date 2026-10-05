@@ -1,1 +1,9 @@
-<p>TODO outro</p>
+<p>Measured on an Apple M5 (10 cores, 16 GB) under macOS, shared with other jobs at the time, so the numbers vary by several per cent between runs. For scale: the lbmpy paper (Bauer, Köstler &amp; Rüde 2021, section V.A) reports “about 300 MLUP/s” for a generated, AVX-512-vectorised D3Q19 single-relaxation-time kernel on all 20 cores of a Xeon Gold 6148 socket, limited by memory bandwidth; that is 15 MLUPS per core for a lattice with 19 populations per node, or about 285 million population updates per second per core. The scalar D2Q9 kernel here moves 9 populations per node. The comparison is between different lattices, collision models, machines and a decade of hardware; it shows only that the kernel is not unreasonably slow.</p>
+<h2 id="limits">6. What this does not show <span class="zh">這份報告沒有證明的事</span></h2>
+<ul>
+<li>The solver is two-dimensional and laminar. Agreement with the benchmarks above says nothing about three-dimensional or turbulent flow.</li>
+<li>The benchmarks cover Reynolds numbers 20 to 1000 in confined geometries. The corner experiment is run in an open tunnel configuration for which the only published comparison used here is the plain square.</li>
+<li>Uniform grids only: the accuracy near the body is bought with cells everywhere.</li>
+<li>Open boundaries are first-order; the compressibility error is of order Mach number squared (see the half-velocity rows).</li>
+</ul>
+<p class="zh">限制：只有二維、層流；網格是均勻的；出口邊界只有一階精度；有馬赫數平方量級的可壓縮誤差。跟真實的台北 101（三維、雷諾數約一億、紊流）差距很大，第 4 節有說明哪些趨勢可以定性對照、哪些不行。</p>

@@ -1,1 +1,5 @@
-<p>TODO intro</p>
+<h1>vortexlab: validation report</h1>
+<p class="lead">A small from-scratch 2-D lattice-Boltzmann flow solver, checked against an exact solution and two published benchmarks, then used for one experiment on corner shapes of a square tower section.</p>
+<p class="zh">這份報告由程式自動產生（<code>make validate corners bench report</code>）：先用三個有標準答案的題目檢查這個自己寫的流體解算器算得對不對，再拿它做一個實驗，比較方柱的角落切成不同形狀（直角、切角、圓角、內凹、台北 101 那種雙層內凹）時，阻力、升力擺動和渦流脫落頻率怎麼變。每個表格裡綠色勾代表數字落在論文公布的參考區間內，紅色叉代表落在外面，後面的百分比是超出多少。</p>
+<p>Every number in the tables below was computed by the code in this repository on the machine described in section 5 and written to CSV files, from which this page is generated; nothing is typed in by hand. Reference values are in <code>data/reference/*.csv</code> with their sources, and the full citations are in <code>docs/REFERENCES.md</code>. A green check means the computed value lies inside the published reference interval, a red cross that it lies outside, followed by the distance to the nearer end of the interval.</p>
+<p>Contents: <a href="#poiseuille">1. channel flow</a> · <a href="#cavity">2. lid-driven cavity</a> · <a href="#cylinder">3. cylinder benchmark</a> · <a href="#corners">4. corner experiment</a> · <a href="#performance">5. speed</a> · <a href="#limits">6. what this does not show</a></p>

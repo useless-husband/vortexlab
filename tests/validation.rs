@@ -17,7 +17,8 @@ fn within(v: f64, reference: f64, rel: f64) -> bool {
 
 #[test]
 fn poiseuille_is_second_order_and_exact_with_the_magic_parameter() {
-    let run = |collision, q| -> Vec<poiseuille::Outcome> { [8, 16, 32].iter().map(|&h| poiseuille::run(h, 0.8, collision, q, 1)).collect() };
+    let run =
+        |collision, q| -> Vec<poiseuille::Outcome> { [8, 16, 32].iter().map(|&h| poiseuille::run(h, 0.8, collision, q, 1)).collect() };
     // BGK and TRT(1/4) with halfway walls, TRT(3/16) with walls off the halfway position:
     // error falls with the square of the resolution.
     for (collision, q) in [(Collision::Bgk, 0.5), (Collision::Trt { magic: 0.25 }, 0.5), (TRT, 0.25), (TRT, 0.8)] {
@@ -96,7 +97,18 @@ fn schaefer_turek_2d2_at_20_cells_per_diameter() {
 #[test]
 fn rounding_the_corners_lowers_drag_and_raises_the_shedding_frequency() {
     // A small version of the corner experiment (20 cells per side, Re = 100, 10 % blockage).
-    let tunnel = Tunnel { d: 20, re: 100.0, u: 0.1, upstream: 6.0, downstream: 12.0, height: 10.0, length: 1.0, collision: TRT, threads: 2, open_sides: true };
+    let tunnel = Tunnel {
+        d: 20,
+        re: 100.0,
+        u: 0.1,
+        upstream: 6.0,
+        downstream: 12.0,
+        height: 10.0,
+        length: 1.0,
+        collision: TRT,
+        threads: 2,
+        open_sides: true,
+    };
     let (cx, cy) = tunnel.centre();
     let run = |corner| tunnel.experiment(section(corner, cx, cy, 20.0, 0.0), 70.0, 40.0, false, &mut |_, _| {}).unwrap().stats;
     let (square, rounded) = (run(Corner::Sharp), run(Corner::Rounded(0.2)));

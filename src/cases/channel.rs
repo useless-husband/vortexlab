@@ -87,7 +87,9 @@ impl Channel {
         let outlet = b.add(Kind::Pressure(1.0));
         let walls = match inflow {
             Inflow::Parabolic { .. } => b.add_static_wall(),
-            Inflow::Uniform { u } => b.add(Kind::Wall(Wall { velocity: Some(Box::new(move |_, _| [u, 0.0])), vgroup: 1, ..Wall::default() })),
+            Inflow::Uniform { u } => {
+                b.add(Kind::Wall(Wall { velocity: Some(Box::new(move |_, _| [u, 0.0])), vgroup: 1, ..Wall::default() }))
+            }
             Inflow::UniformOpen { .. } => b.add(Kind::Radiating(1.0)),
         };
         b.fill_rect(0, 0, 0, ny - 1, inlet);

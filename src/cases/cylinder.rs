@@ -33,7 +33,7 @@ struct Rig {
 }
 
 fn rig(s: Setup, re: f64, ramp_units: f64) -> Rig {
-    assert!(s.n >= 10 && s.n % 10 == 0, "cells per diameter must be a multiple of 10");
+    assert!(s.n >= 10 && s.n.is_multiple_of(10), "cells per diameter must be a multiple of 10");
     let n = s.n as f64;
     let (xc, yc) = (0.5 + 2.0 * n, 0.5 + 2.0 * n);
     let spec = Spec {
@@ -177,7 +177,12 @@ pub fn run_2d2(s: Setup, total_units: f64, window_units: f64) -> Result<Unsteady
         rig.ch.step();
         let (d, l) = rig.ch.coefficients(rig.n);
         if !d.is_finite() {
-            return Err(format!("diverged after {} steps (tau = {:.4}): under-resolved at {} cells per diameter", rig.ch.sim.t, crate::lattice::tau_for(s.u_mean * rig.n / 100.0), s.n));
+            return Err(format!(
+                "diverged after {} steps (tau = {:.4}): under-resolved at {} cells per diameter",
+                rig.ch.sim.t,
+                crate::lattice::tau_for(s.u_mean * rig.n / 100.0),
+                s.n
+            ));
         }
         series.cd.push(d);
         series.cl.push(l);
@@ -193,7 +198,8 @@ pub fn run_2d2(s: Setup, total_units: f64, window_units: f64) -> Result<Unsteady
     let cl_max = fold(&tops, f64::MIN, f64::max);
     let spread = if tops.is_empty() { f64::NAN } else { (cl_max - fold(&tops, f64::MAX, f64::min)) / signal::mean(&tops) };
     // Pressure difference half a period after each lift maximum (the benchmark's definition).
-    let half: Vec<f64> = pk.iter().map(|p| p.0 + 0.5 * period).filter(|&t| t < (dp.len() - 1) as f64).map(|t| signal::sample_at(dp, t)).collect();
+    let half: Vec<f64> =
+        pk.iter().map(|p| p.0 + 0.5 * period).filter(|&t| t < (dp.len() - 1) as f64).map(|t| signal::sample_at(dp, t)).collect();
     Ok(Unsteady {
         n: s.n,
         cd_max: fold(cd, f64::MIN, f64::max),

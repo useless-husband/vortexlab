@@ -270,8 +270,19 @@ impl Sim {
                         Some(i) if b.cell[i] == FLUID => i,
                         _ => NONE,
                     };
-                    let mut link =
-                        Link { dir: j as u8, kind: LINK_WALL, vgroup: 0, q: 0.5, behind, fgroup: NONE, uw: [0.0, 0.0], cu6: 0.0, rho: 1.0, normal: [0, 0], radiating: false };
+                    let mut link = Link {
+                        dir: j as u8,
+                        kind: LINK_WALL,
+                        vgroup: 0,
+                        q: 0.5,
+                        behind,
+                        fgroup: NONE,
+                        uw: [0.0, 0.0],
+                        cu6: 0.0,
+                        rho: 1.0,
+                        normal: [0, 0],
+                        radiating: false,
+                    };
                     match &b.kinds[kind as usize] {
                         Kind::Fluid => unreachable!(),
                         Kind::Pressure(rho) | Kind::Radiating(rho) => {
@@ -280,7 +291,9 @@ impl Sim {
                             link.radiating = matches!(&b.kinds[kind as usize], Kind::Radiating(_));
                             // Outward normal: along x if the cell beside the node in x is open
                             // boundary too, otherwise along y.
-                            let open = |i: Option<usize>| i.map(|i| matches!(b.kinds[b.cell[i] as usize], Kind::Pressure(_) | Kind::Radiating(_))) == Some(true);
+                            let open = |i: Option<usize>| {
+                                i.map(|i| matches!(b.kinds[b.cell[i] as usize], Kind::Pressure(_) | Kind::Radiating(_))) == Some(true)
+                            };
                             link.normal = if open(wrap(x as isize + cx, y as isize)) { [cx as i8, 0] } else { [0, cy as i8] };
                             if !link.radiating && pnodes.last().map(|p: &(usize, i8, i8)| p.0) != Some(idx) {
                                 pnodes.push((idx, link.normal[0], link.normal[1]));
@@ -469,7 +482,8 @@ impl Sim {
                     // the boundary density, using the local velocity as the wall velocity.
                     let (ux, uy) = velocity(idx);
                     let cu = 3.0 * (CX[j] as f64 * ux + CY[j] as f64 * uy);
-                    let rho_w = if l.radiating { l.rho + (l.normal[0] as f64 * ux + l.normal[1] as f64 * uy) / CS2.sqrt() } else { l.rho + drho };
+                    let rho_w =
+                        if l.radiating { l.rho + (l.normal[0] as f64 * ux + l.normal[1] as f64 * uy) / CS2.sqrt() } else { l.rho + drho };
                     -out + 2.0 * W[j] * rho_w * (1.0 + 0.5 * cu * cu - 1.5 * (ux * ux + uy * uy))
                 };
                 f[i] = back;

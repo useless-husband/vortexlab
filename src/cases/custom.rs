@@ -14,9 +14,18 @@ use crate::png::Image;
 /// The reference length D of the run is the frontal height of the (rotated) shape, the
 /// channel is 10 D high (10 % blockage), with 5 D of open tunnel ahead of the nose and 14 D
 /// behind the tail.
-pub fn place(image: &Image, cells: usize, angle_deg: f64, re: f64, u: f64, collision: Collision, threads: usize) -> Result<(Tunnel, Box<dyn Shape>), String> {
+pub fn place(
+    image: &Image,
+    cells: usize,
+    angle_deg: f64,
+    re: f64,
+    u: f64,
+    collision: Collision,
+    threads: usize,
+) -> Result<(Tunnel, Box<dyn Shape>), String> {
     let mut bitmap = Bitmap { w: image.w, h: image.h, level: image.silhouette(), x0: 0.0, y0: 0.0, scale: 1.0 };
-    let (xa, xb, ya, yb) = bitmap.bounds().ok_or("the picture contains no dark shape (the body must be dark on a light or transparent background)")?;
+    let (xa, xb, ya, yb) =
+        bitmap.bounds().ok_or("the picture contains no dark shape (the body must be dark on a light or transparent background)")?;
     let longest = (xb - xa).max(yb - ya);
     if longest < 4.0 {
         return Err("the shape is only a few pixels across; draw it larger".into());
@@ -30,10 +39,23 @@ pub fn place(image: &Image, cells: usize, angle_deg: f64, re: f64, u: f64, colli
     let (x0, x1, y0, y1) = bounding_box(&rotated, cells as f64, 0.25).ok_or("the shape vanished at this resolution; use more cells")?;
     let d = (y1 - y0).round() as usize;
     if d < 8 {
-        return Err(format!("the shape is only {d} cells thick across the flow at this resolution; use more cells (--cells) or turn it (--angle)"));
+        return Err(format!(
+            "the shape is only {d} cells thick across the flow at this resolution; use more cells (--cells) or turn it (--angle)"
+        ));
     }
     let length = (x1 - x0) / d as f64;
-    let tunnel = Tunnel { d, re, u, upstream: 5.0 + 0.5 * length, downstream: 14.0 + 0.5 * length, height: 10.0, length, collision, threads, open_sides: true };
+    let tunnel = Tunnel {
+        d,
+        re,
+        u,
+        upstream: 5.0 + 0.5 * length,
+        downstream: 14.0 + 0.5 * length,
+        height: 10.0,
+        length,
+        collision,
+        threads,
+        open_sides: true,
+    };
     let (nx, ny) = tunnel.grid();
     if nx * ny > 6_000_000 {
         return Err(format!("the grid would be {nx} x {ny} cells, too large; use fewer cells (--cells)"));

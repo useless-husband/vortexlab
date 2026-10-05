@@ -1,8 +1,8 @@
 //! The experiments: each module sets up a domain, runs it and returns numbers.
 
 pub mod cavity;
-pub mod custom;
 pub mod channel;
+pub mod custom;
 pub mod cylinder;
 pub mod poiseuille;
 pub mod tunnel;

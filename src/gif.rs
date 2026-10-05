@@ -231,7 +231,12 @@ pub fn decode(data: &[u8]) -> Result<Animation, String> {
             }
             0x2c => {
                 let d = data.get(pos + 1..pos + 11).ok_or("truncated GIF")?;
-                if d[..4] != [0, 0, 0, 0] || u16::from_le_bytes([d[4], d[5]]) as usize != w || u16::from_le_bytes([d[6], d[7]]) as usize != h || d[8] != 0 || d[9] != 8 {
+                if d[..4] != [0, 0, 0, 0]
+                    || u16::from_le_bytes([d[4], d[5]]) as usize != w
+                    || u16::from_le_bytes([d[6], d[7]]) as usize != h
+                    || d[8] != 0
+                    || d[9] != 8
+                {
                     return Err("unsupported GIF frame layout".into());
                 }
                 pos += 11;

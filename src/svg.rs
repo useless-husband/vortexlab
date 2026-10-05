@@ -130,27 +130,65 @@ impl Plot {
         let sy = |y: f64| mt + ph * (1.0 - tx(y, y0, y1, self.log_y));
 
         let mut o = String::new();
-        let _ = write!(o, r#"<svg viewBox="0 0 {} {}" role="img" class="chart" xmlns="http://www.w3.org/2000/svg"><desc>{}</desc>"#, self.w, self.h, esc(&self.desc));
+        let _ = write!(
+            o,
+            r#"<svg viewBox="0 0 {} {}" role="img" class="chart" xmlns="http://www.w3.org/2000/svg"><desc>{}</desc>"#,
+            self.w,
+            self.h,
+            esc(&self.desc)
+        );
         // Grid and tick labels.
         let xt = if self.log_x { log_ticks(x0, x1) } else { ticks(x0, x1, 6) };
         let yt = if self.log_y { log_ticks(y0, y1) } else { ticks(y0, y1, 5) };
         for &t in &yt {
             let y = sy(t);
-            let _ = write!(o, r#"<line class="grid" x1="{ml}" x2="{:.1}" y1="{y:.1}" y2="{y:.1}"/><text class="tick" x="{:.1}" y="{:.1}" text-anchor="end">{}</text>"#, ml + pw, ml - 6.0, y + 3.5, num(t));
+            let _ = write!(
+                o,
+                r#"<line class="grid" x1="{ml}" x2="{:.1}" y1="{y:.1}" y2="{y:.1}"/><text class="tick" x="{:.1}" y="{:.1}" text-anchor="end">{}</text>"#,
+                ml + pw,
+                ml - 6.0,
+                y + 3.5,
+                num(t)
+            );
         }
         for &t in &xt {
             let x = sx(t);
-            let _ = write!(o, r#"<line class="grid" x1="{x:.1}" x2="{x:.1}" y1="{mt}" y2="{:.1}"/><text class="tick" x="{x:.1}" y="{:.1}" text-anchor="middle">{}</text>"#, mt + ph, mt + ph + 15.0, num(t));
+            let _ = write!(
+                o,
+                r#"<line class="grid" x1="{x:.1}" x2="{x:.1}" y1="{mt}" y2="{:.1}"/><text class="tick" x="{x:.1}" y="{:.1}" text-anchor="middle">{}</text>"#,
+                mt + ph,
+                mt + ph + 15.0,
+                num(t)
+            );
         }
         // Reference bands.
         for (lo, hi, label) in &self.bands {
             let (ya, yb) = (sy(*hi), sy(*lo));
-            let _ = write!(o, r#"<rect class="band" x="{ml}" y="{ya:.1}" width="{pw}" height="{:.1}"><title>{}: {} to {}</title></rect>"#, (yb - ya).max(1.5), esc(label), num(*lo), num(*hi));
-            let _ = write!(o, r#"<text class="bandlbl" x="{:.1}" y="{:.1}" text-anchor="end">{}</text>"#, ml + pw - 4.0, ya - 4.0, esc(label));
+            let _ = write!(
+                o,
+                r#"<rect class="band" x="{ml}" y="{ya:.1}" width="{pw}" height="{:.1}"><title>{}: {} to {}</title></rect>"#,
+                (yb - ya).max(1.5),
+                esc(label),
+                num(*lo),
+                num(*hi)
+            );
+            let _ =
+                write!(o, r#"<text class="bandlbl" x="{:.1}" y="{:.1}" text-anchor="end">{}</text>"#, ml + pw - 4.0, ya - 4.0, esc(label));
         }
         let _ = write!(o, r#"<line class="axis" x1="{ml}" x2="{:.1}" y1="{:.1}" y2="{:.1}"/>"#, ml + pw, mt + ph, mt + ph);
-        let _ = write!(o, r#"<text class="lbl" x="{:.1}" y="{:.1}" text-anchor="middle">{}</text>"#, ml + pw / 2.0, self.h - 6.0, esc(&self.x_label));
-        let _ = write!(o, r#"<text class="lbl" transform="translate(13 {:.1}) rotate(-90)" text-anchor="middle">{}</text>"#, mt + ph / 2.0, esc(&self.y_label));
+        let _ = write!(
+            o,
+            r#"<text class="lbl" x="{:.1}" y="{:.1}" text-anchor="middle">{}</text>"#,
+            ml + pw / 2.0,
+            self.h - 6.0,
+            esc(&self.x_label)
+        );
+        let _ = write!(
+            o,
+            r#"<text class="lbl" transform="translate(13 {:.1}) rotate(-90)" text-anchor="middle">{}</text>"#,
+            mt + ph / 2.0,
+            esc(&self.y_label)
+        );
         // Data.
         for s in &self.series {
             let ok = |p: &(f64, f64)| p.0.is_finite() && p.1.is_finite() && (!self.log_x || p.0 > 0.0) && (!self.log_y || p.1 > 0.0);
@@ -160,7 +198,16 @@ impl Plot {
             }
             if s.markers {
                 for p in s.pts.iter().filter(|p| ok(p)) {
-                    let _ = write!(o, r#"<circle class="mk f{}" cx="{:.1}" cy="{:.1}" r="4"><title>{}: {}, {}</title></circle>"#, s.slot, sx(p.0), sy(p.1), esc(&s.name), num(p.0), num(p.1));
+                    let _ = write!(
+                        o,
+                        r#"<circle class="mk f{}" cx="{:.1}" cy="{:.1}" r="4"><title>{}: {}, {}</title></circle>"#,
+                        s.slot,
+                        sx(p.0),
+                        sy(p.1),
+                        esc(&s.name),
+                        num(p.0),
+                        num(p.1)
+                    );
                 }
             }
         }
@@ -169,7 +216,13 @@ impl Plot {
             let mut x = ml;
             for s in &self.series {
                 if s.line {
-                    let _ = write!(o, r#"<line class="ln s{}{}" x1="{x:.1}" x2="{:.1}" y1="12" y2="12"/>"#, s.slot, if s.dashed { " dash" } else { "" }, x + 18.0);
+                    let _ = write!(
+                        o,
+                        r#"<line class="ln s{}{}" x1="{x:.1}" x2="{:.1}" y1="12" y2="12"/>"#,
+                        s.slot,
+                        if s.dashed { " dash" } else { "" },
+                        x + 18.0
+                    );
                 }
                 if s.markers {
                     let _ = write!(o, r#"<circle class="mk f{}" cx="{:.1}" cy="12" r="4"/>"#, s.slot, x + 9.0);
@@ -191,7 +244,11 @@ pub fn bars(items: &[(String, f64)], slot: usize, decimals: usize, reference: Op
     let max = items.iter().map(|i| i.1).fold(0.0, f64::max).max(1e-300);
     let pw = w - ml - mr;
     let mut o = String::new();
-    let _ = write!(o, r#"<svg viewBox="0 0 {w} {h}" role="img" class="chart bars" xmlns="http://www.w3.org/2000/svg"><desc>{}</desc>"#, esc(desc));
+    let _ = write!(
+        o,
+        r#"<svg viewBox="0 0 {w} {h}" role="img" class="chart bars" xmlns="http://www.w3.org/2000/svg"><desc>{}</desc>"#,
+        esc(desc)
+    );
     for (k, (name, v)) in items.iter().enumerate() {
         let y = 4.0 + row * k as f64;
         let len = (pw * v / max).max(1.0);
@@ -223,16 +280,34 @@ pub fn colorbar(palette: &[[u8; 3]], lo: f64, hi: f64, label: &str) -> String {
     let (w, h, ml, bw) = (420.0, 46.0, 10.0, 400.0);
     let n = 50usize.min(palette.len());
     let mut o = String::new();
-    let _ = write!(o, r#"<svg viewBox="0 0 {w} {h}" role="img" class="chart colorbar" xmlns="http://www.w3.org/2000/svg"><desc>{}</desc>"#, esc(label));
+    let _ = write!(
+        o,
+        r#"<svg viewBox="0 0 {w} {h}" role="img" class="chart colorbar" xmlns="http://www.w3.org/2000/svg"><desc>{}</desc>"#,
+        esc(label)
+    );
     for k in 0..n {
         let c = palette[k * (palette.len() - 1) / (n - 1)];
-        let _ = write!(o, r##"<rect x="{:.2}" y="2" width="{:.2}" height="14" fill="#{:02x}{:02x}{:02x}"/>"##, ml + bw * k as f64 / n as f64, bw / n as f64 + 0.3, c[0], c[1], c[2]);
+        let _ = write!(
+            o,
+            r##"<rect x="{:.2}" y="2" width="{:.2}" height="14" fill="#{:02x}{:02x}{:02x}"/>"##,
+            ml + bw * k as f64 / n as f64,
+            bw / n as f64 + 0.3,
+            c[0],
+            c[1],
+            c[2]
+        );
     }
     for (k, v) in [lo, 0.5 * lo, 0.0, 0.5 * hi, hi].iter().enumerate() {
         let x = ml + bw * k as f64 / 4.0;
         let anchor = ["start", "middle", "middle", "middle", "end"][k];
         let sign = if *v > 0.0 { "+" } else { "" };
-        let edge = if k == 0 { "≤ " } else if k == 4 { "≥ " } else { "" };
+        let edge = if k == 0 {
+            "≤ "
+        } else if k == 4 {
+            "≥ "
+        } else {
+            ""
+        };
         let _ = write!(o, r#"<text class="tick" x="{x:.1}" y="29" text-anchor="{anchor}">{edge}{sign}{}</text>"#, num(*v));
     }
     let _ = write!(o, r#"<text class="lbl" x="{:.1}" y="43" text-anchor="middle">{}</text></svg>"#, ml + bw / 2.0, esc(label));

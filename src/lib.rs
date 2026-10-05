@@ -5,6 +5,9 @@
 //! * [`geometry`]: body shapes and link/surface intersection.
 //! * [`pool`]: persistent worker threads.
 
+// Index loops over the nine lattice directions (and over pixels) mirror the formulas they implement.
+#![allow(clippy::needless_range_loop)]
+
 pub mod cases;
 pub mod geometry;
 pub mod gif;
@@ -15,7 +18,7 @@ pub mod reference;
 pub mod render;
 pub mod report;
 pub mod signal;
-pub mod suite;
 pub mod sim;
+pub mod suite;
 pub mod svg;
 pub mod units;

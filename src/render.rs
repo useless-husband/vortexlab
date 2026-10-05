@@ -76,7 +76,8 @@ fn lerp3(a: [f64; 3], b: [f64; 3], t: f64) -> [f64; 3] {
 /// Colour for a signed value in [-1, 1].
 pub fn diverging(v: f64) -> [u8; 3] {
     // Blue arm anchors, from zero outwards (neutral grey, then one blue hue darkening).
-    const ANCHORS: [(f64, [u8; 3]); 4] = [(0.0, [0xf0, 0xef, 0xec]), (0.35, [0x9e, 0xc5, 0xf4]), (0.7, [0x2a, 0x78, 0xd6]), (1.0, [0x0d, 0x36, 0x6b])];
+    const ANCHORS: [(f64, [u8; 3]); 4] =
+        [(0.0, [0xf0, 0xef, 0xec]), (0.35, [0x9e, 0xc5, 0xf4]), (0.7, [0x2a, 0x78, 0xd6]), (1.0, [0x0d, 0x36, 0x6b])];
     const RED: [u8; 3] = [0xd0, 0x3b, 0x3b];
     let t = v.abs().min(1.0);
     let k = ANCHORS.iter().rposition(|a| a.0 <= t).unwrap().min(ANCHORS.len() - 2);
@@ -122,7 +123,10 @@ pub struct View {
 
 impl View {
     pub fn size(&self) -> (usize, usize) {
-        ((((self.x1 - self.x0) as f64) * self.zoom).round().max(1.0) as usize, (((self.y1 - self.y0) as f64) * self.zoom).round().max(1.0) as usize)
+        (
+            (((self.x1 - self.x0) as f64) * self.zoom).round().max(1.0) as usize,
+            (((self.y1 - self.y0) as f64) * self.zoom).round().max(1.0) as usize,
+        )
     }
 }
 
@@ -146,7 +150,10 @@ pub fn vorticity_frame(sim: &Sim, view: View, full_scale: f64) -> Vec<u8> {
                 let (i, j) = ((x.floor().max(0.0) as usize).min(sim.nx - 2), (y.floor().max(0.0) as usize).min(sim.ny - 2));
                 let (fx, fy) = ((x - i as f64).clamp(0.0, 1.0), (y - j as f64).clamp(0.0, 1.0));
                 let f = |a: usize, b: usize| field[b * nx + a] as f64;
-                let v = (1.0 - fx) * (1.0 - fy) * f(i, j) + fx * (1.0 - fy) * f(i + 1, j) + (1.0 - fx) * fy * f(i, j + 1) + fx * fy * f(i + 1, j + 1);
+                let v = (1.0 - fx) * (1.0 - fy) * f(i, j)
+                    + fx * (1.0 - fy) * f(i + 1, j)
+                    + (1.0 - fx) * fy * f(i, j + 1)
+                    + fx * fy * f(i + 1, j + 1);
                 level(v / full_scale)
             };
         }

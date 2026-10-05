@@ -1,6 +1,8 @@
 //! The PNG decoder against files written by an independent encoder (Python's zlib; see
 //! tools/make_png_fixtures.py), and the encoders against the decoders on real renderings.
 
+#![allow(clippy::needless_range_loop)]
+
 use vortexlab::{gif, png, render};
 
 fn load(name: &str) -> png::Image {

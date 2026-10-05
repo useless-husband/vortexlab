@@ -3,9 +3,9 @@
 //! Used for the corner-modification experiment and for user-supplied shapes.
 
 use crate::cases::channel::{Channel, Inflow, Kick, Series, Spec, Stats};
-use crate::render::{self, View};
 use crate::geometry::Shape;
 use crate::lattice::Collision;
+use crate::render::{self, View};
 use crate::sim::Sim;
 
 #[derive(Clone, Copy, Debug)]
@@ -149,7 +149,14 @@ impl Tunnel {
     /// first `discard` units, draw the final vorticity field and, if `animate`, run one more
     /// shedding period to record a seamless loop. `progress` is called 20 times with the
     /// fraction done and the history so far.
-    pub fn experiment(&self, body: Box<dyn Shape>, units: f64, discard: f64, animate: bool, progress: &mut dyn FnMut(f64, &Series)) -> Result<Outcome, String> {
+    pub fn experiment(
+        &self,
+        body: Box<dyn Shape>,
+        units: f64,
+        discard: f64,
+        animate: bool,
+        progress: &mut dyn FnMut(f64, &Series),
+    ) -> Result<Outcome, String> {
         let start = std::time::Instant::now();
         let mut ch = self.build(body);
         let mut series = Series { dt: 1.0 / self.steps_per_unit(), cd: Vec::new(), cl: Vec::new() };
@@ -172,6 +179,15 @@ impl Tunnel {
         }
         let seconds = start.elapsed().as_secs_f64();
         let steps = ch.sim.t;
-        Ok(Outcome { series, stats, picture, frames, size: view.size(), steps, seconds, mlups: ch.sim.fluid_nodes() as f64 * steps as f64 / seconds / 1e6 })
+        Ok(Outcome {
+            series,
+            stats,
+            picture,
+            frames,
+            size: view.size(),
+            steps,
+            seconds,
+            mlups: ch.sim.fluid_nodes() as f64 * steps as f64 / seconds / 1e6,
+        })
     }
 }

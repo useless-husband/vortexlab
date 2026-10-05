@@ -8,7 +8,11 @@ const CORNERS: &str = include_str!("../data/reference/square_cylinder_low_re.csv
 
 /// Data rows of a CSV text: comment lines (#) and blank lines skipped, fields trimmed.
 pub fn rows(text: &str) -> Vec<Vec<String>> {
-    text.lines().map(str::trim).filter(|l| !l.is_empty() && !l.starts_with('#')).map(|l| l.split(',').map(|f| f.trim().to_string()).collect()).collect()
+    text.lines()
+        .map(str::trim)
+        .filter(|l| !l.is_empty() && !l.starts_with('#'))
+        .map(|l| l.split(',').map(|f| f.trim().to_string()).collect())
+        .collect()
 }
 
 /// Ghia, Ghia & Shin (1982) centreline profile: (coordinate, velocity / lid velocity).
@@ -19,14 +23,18 @@ pub fn ghia(table: &str, re: u32) -> Vec<(f64, f64)> {
         1000 => 4,
         _ => panic!("Ghia data stored for Re = 100 and 1000 only"),
     };
-    let mut v: Vec<(f64, f64)> = rows(GHIA).iter().filter(|r| r[0] == table).map(|r| (r[2].parse().unwrap(), r[col].parse().unwrap())).collect();
+    let mut v: Vec<(f64, f64)> =
+        rows(GHIA).iter().filter(|r| r[0] == table).map(|r| (r[2].parse().unwrap(), r[col].parse().unwrap())).collect();
     v.sort_by(|a, b| a.0.total_cmp(&b.0));
     v
 }
 
 /// Centreline extremum (value, position) from `source` = "ghia", "botella-peyret" or "marchi".
 pub fn cavity_extremum(source: &str, re: u32, quantity: &str) -> Option<(f64, f64)> {
-    rows(CAVITY_EXTREMA).iter().find(|r| r[0] == source && r[1] == re.to_string() && r[2] == quantity).map(|r| (r[3].parse().unwrap(), r[4].parse().unwrap()))
+    rows(CAVITY_EXTREMA)
+        .iter()
+        .find(|r| r[0] == source && r[1] == re.to_string() && r[2] == quantity)
+        .map(|r| (r[3].parse().unwrap(), r[4].parse().unwrap()))
 }
 
 /// Schafer & Turek (1996) reference interval for `case` "2D-1"/"2D-2" and a quantity.
@@ -40,7 +48,10 @@ pub fn st_later(case: &str, quantity: &str) -> Option<f64> {
 }
 
 fn st_row(kind: &str, case: &str, quantity: &str) -> Option<(f64, f64)> {
-    rows(SCHAEFER_TUREK).iter().find(|r| r[0] == kind && r[1] == case && r[2] == quantity).map(|r| (r[3].parse().unwrap(), r[4].parse().unwrap()))
+    rows(SCHAEFER_TUREK)
+        .iter()
+        .find(|r| r[0] == kind && r[1] == case && r[2] == quantity)
+        .map(|r| (r[3].parse().unwrap(), r[4].parse().unwrap()))
 }
 
 /// Published low-Reynolds-number results for square-section cylinders (for context only).

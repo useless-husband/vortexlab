@@ -1,6 +1,8 @@
 //! Solver-level tests: conservation, boundary conditions on flows with known solutions,
 //! force evaluation, determinism.
 
+#![allow(clippy::needless_range_loop)]
+
 use vortexlab::cases::channel::{Channel, Inflow, Spec};
 use vortexlab::geometry::{section, Circle, Corner, Shape};
 use vortexlab::lattice::{viscosity, Collision, CS2};
@@ -32,7 +34,11 @@ fn periodic_box_conserves_mass_and_momentum() {
             println!("{collision:?} x{threads}: mass drift {:e}, momentum drift {:e} {:e}", m1 - m0, p1[0] - p0[0], p1[1] - p0[1]);
             // 1728 nodes x 9 populations x 400 steps of unbiased rounding: a few 1e-13.
             assert!((m1 - m0).abs() < 2e-12, "{collision:?}: mass drift {}", m1 - m0);
-            assert!((p1[0] - p0[0]).abs() < 1e-12 && (p1[1] - p0[1]).abs() < 1e-12, "{collision:?}: momentum drift {:?}", [p1[0] - p0[0], p1[1] - p0[1]]);
+            assert!(
+                (p1[0] - p0[0]).abs() < 1e-12 && (p1[1] - p0[1]).abs() < 1e-12,
+                "{collision:?}: momentum drift {:?}",
+                [p1[0] - p0[0], p1[1] - p0[1]]
+            );
             // The flow itself must have changed (viscous decay), or the test proves nothing.
             assert!(sim.max_speed() < 0.07);
         }
@@ -105,7 +111,10 @@ fn wall_shear_is_galilean_invariant() {
         for frame in [0.0, 0.03, -0.05, 0.08] {
             let (low, top, normal, dev) = couette(frame, shear, collision);
             assert!(dev < 1e-12, "profile not linear in frame {frame}: {dev}");
-            assert!((low - expected).abs() < 1e-12 * 1.0f64.max(1.0 / expected) * expected + 1e-13, "{collision:?} frame {frame}: lower wall shear {low} vs {expected}");
+            assert!(
+                (low - expected).abs() < 1e-12 * 1.0f64.max(1.0 / expected) * expected + 1e-13,
+                "{collision:?} frame {frame}: lower wall shear {low} vs {expected}"
+            );
             assert!((top + expected).abs() < 1e-13, "{collision:?} frame {frame}: upper wall shear {top}");
             // Pressure pushes the lower wall down with rho c_s^2 per unit length.
             assert!((normal + CS2).abs() < 1e-12, "{collision:?} frame {frame}: normal force {normal}");
@@ -118,7 +127,8 @@ fn body_moving_with_the_stream_feels_no_force() {
     // A body whose surface moves with a uniform stream does not disturb it: the stream stays
     // exactly uniform and the momentum-exchange force vanishes, whatever the stream's
     // direction and wherever the surface cuts the lattice links.
-    let shapes: Vec<(&str, Box<dyn Fn() -> Box<dyn Shape>>)> = vec![
+    type MakeShape = Box<dyn Fn() -> Box<dyn Shape>>;
+    let shapes: Vec<(&str, MakeShape)> = vec![
         ("circle", Box::new(|| Box::new(Circle { cx: 20.3, cy: 15.7, r: 6.4 }))),
         ("notched square", Box::new(|| section(Corner::DoubleRecessed(0.1), 20.5, 16.5, 12.0, 0.3))),
     ];
@@ -127,7 +137,12 @@ fn body_moving_with_the_stream_feels_no_force() {
             for collision in [Collision::Bgk, TRT] {
                 let mut b = Builder::new(40, 32);
                 (b.periodic_x, b.periodic_y, b.tau, b.collision) = (true, true, 0.6, collision);
-                let body = b.add(Kind::Wall(Wall { velocity: Some(Box::new(move |_, _| u)), fgroup: Some(0), shape: Some(make()), ..Wall::default() }));
+                let body = b.add(Kind::Wall(Wall {
+                    velocity: Some(Box::new(move |_, _| u)),
+                    fgroup: Some(0),
+                    shape: Some(make()),
+                    ..Wall::default()
+                }));
                 b.fill_shape(body);
                 let mut sim = b.build(1);
                 sim.init(|_, _| (1.0, u[0], u[1]));
@@ -170,7 +185,9 @@ fn open_channel(nx: usize, rows: usize, inflow: Inflow, tau: f64) -> Sim {
     let outlet = b.add(Kind::Pressure(1.0));
     let walls = match inflow {
         Inflow::Parabolic { .. } => b.add_static_wall(),
-        Inflow::Uniform { u } | Inflow::UniformOpen { u } => b.add(Kind::Wall(Wall { velocity: Some(Box::new(move |_, _| [u, 0.0])), ..Wall::default() })),
+        Inflow::Uniform { u } | Inflow::UniformOpen { u } => {
+            b.add(Kind::Wall(Wall { velocity: Some(Box::new(move |_, _| [u, 0.0])), ..Wall::default() }))
+        }
     };
     b.fill_rect(0, 0, 0, rows + 1, inlet);
     b.fill_rect(nx - 1, nx - 1, 0, rows + 1, outlet);
@@ -215,7 +232,6 @@ fn inlet_and_outlet_drive_developed_channel_flow() {
         let exact = 6.0 * mean_flux * (y as f64 - 0.5) * (h - y as f64 + 0.5) / (h * h);
         let (rho, ux, uy) = sim.macros(40, y);
         worst = worst.max((rho * ux - exact).abs()).max(uy.abs());
-
     }
     println!("profile deviation / u_mean = {:e}", worst / u_mean);
     assert!(worst < 2e-4 * u_mean, "profile deviates by {worst}");

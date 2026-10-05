@@ -7,10 +7,13 @@
 
 const SIGNATURE: [u8; 8] = [0x89, b'P', b'N', b'G', 0x0d, 0x0a, 0x1a, 0x0a];
 
-const LEN_BASE: [u16; 29] = [3, 4, 5, 6, 7, 8, 9, 10, 11, 13, 15, 17, 19, 23, 27, 31, 35, 43, 51, 59, 67, 83, 99, 115, 131, 163, 195, 227, 258];
+const LEN_BASE: [u16; 29] =
+    [3, 4, 5, 6, 7, 8, 9, 10, 11, 13, 15, 17, 19, 23, 27, 31, 35, 43, 51, 59, 67, 83, 99, 115, 131, 163, 195, 227, 258];
 const LEN_EXTRA: [u8; 29] = [0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 2, 2, 2, 2, 3, 3, 3, 3, 4, 4, 4, 4, 5, 5, 5, 5, 0];
-const DIST_BASE: [u16; 30] =
-    [1, 2, 3, 4, 5, 7, 9, 13, 17, 25, 33, 49, 65, 97, 129, 193, 257, 385, 513, 769, 1025, 1537, 2049, 3073, 4097, 6145, 8193, 12289, 16385, 24577];
+const DIST_BASE: [u16; 30] = [
+    1, 2, 3, 4, 5, 7, 9, 13, 17, 25, 33, 49, 65, 97, 129, 193, 257, 385, 513, 769, 1025, 1537, 2049, 3073, 4097, 6145, 8193, 12289, 16385,
+    24577,
+];
 const DIST_EXTRA: [u8; 30] = [0, 0, 0, 0, 1, 1, 2, 2, 3, 3, 4, 4, 5, 5, 6, 6, 7, 7, 8, 8, 9, 9, 10, 10, 11, 11, 12, 12, 13, 13];
 
 pub fn crc32(chunks: &[&[u8]]) -> u32 {
@@ -127,6 +130,12 @@ fn fixed_tables() -> (Huffman, Huffman) {
 
 /// Decompresses a raw DEFLATE stream.
 pub fn inflate(data: &[u8]) -> Result<Vec<u8>, String> {
+    inflate_limited(data, usize::MAX)
+}
+
+/// Like [`inflate`], but gives up once the output would exceed `limit` bytes, so a small
+/// malicious file cannot make the decoder allocate gigabytes.
+pub fn inflate_limited(data: &[u8], limit: usize) -> Result<Vec<u8>, String> {
     let mut br = Bits { data, pos: 0, bit: 0 };
     let mut out: Vec<u8> = Vec::new();
     loop {
@@ -151,7 +160,12 @@ pub fn inflate(data: &[u8]) -> Result<Vec<u8>, String> {
                 loop {
                     let sym = lit.decode(&mut br)?;
                     match sym {
-                        0..=255 => out.push(sym as u8),
+                        0..=255 => {
+                            if out.len() > limit {
+                                return Err("compressed data expands beyond the expected size".into());
+                            }
+                            out.push(sym as u8)
+                        }
                         256 => break,
                         257..=285 => {
                             let len = LEN_BASE[sym - 257] as usize + br.bits(LEN_EXTRA[sym - 257] as u32)? as usize;
@@ -163,6 +177,9 @@ pub fn inflate(data: &[u8]) -> Result<Vec<u8>, String> {
                             if d > out.len() {
                                 return Err("distance reaches before the start of the data".into());
                             }
+                            if out.len() > limit {
+                                return Err("compressed data expands beyond the expected size".into());
+                            }
                             let start = out.len() - d;
                             for k in 0..len {
                                 out.push(out[start + k]);
@@ -173,6 +190,9 @@ pub fn inflate(data: &[u8]) -> Result<Vec<u8>, String> {
                 }
             }
             _ => return Err("invalid deflate block type".into()),
+        }
+        if out.len() > limit {
+            return Err("compressed data expands beyond the expected size".into());
         }
         if last == 1 {
             return Ok(out);
@@ -319,11 +339,11 @@ fn zlib_compress(data: &[u8]) -> Vec<u8> {
     out
 }
 
-fn zlib_decompress(data: &[u8]) -> Result<Vec<u8>, String> {
-    if data.len() < 6 || data[0] & 0x0f != 8 || (u16::from_be_bytes([data[0], data[1]]) % 31) != 0 || data[1] & 0x20 != 0 {
+fn zlib_decompress(data: &[u8], limit: usize) -> Result<Vec<u8>, String> {
+    if data.len() < 6 || data[0] & 0x0f != 8 || !u16::from_be_bytes([data[0], data[1]]).is_multiple_of(31) || data[1] & 0x20 != 0 {
         return Err("not a zlib stream".into());
     }
-    let out = inflate(&data[2..])?;
+    let out = inflate_limited(&data[2..], limit)?;
     // The checksum is the last four bytes of the stream (anything after the final block).
     let tail = &data[data.len() - 4..];
     if u32::from_be_bytes([tail[0], tail[1], tail[2], tail[3]]) != adler32(&out) {
@@ -347,7 +367,9 @@ impl Image {
     /// background.
     pub fn silhouette(&self) -> Vec<f32> {
         self.rgba
-            .chunks_exact(4)
+            .as_chunks::<4>()
+            .0
+            .iter()
             .map(|p| {
                 let lum = (0.299 * p[0] as f32 + 0.587 * p[1] as f32 + 0.114 * p[2] as f32) / 255.0;
                 (p[3] as f32 / 255.0) * (1.0 - lum)
@@ -493,7 +515,7 @@ pub fn decode(file: &[u8]) -> Result<Image, String> {
     let bits = channels * depth as usize;
     let bpp = bits.div_ceil(8);
     let stride = (w * bits).div_ceil(8);
-    let raw = zlib_decompress(&idat)?;
+    let raw = zlib_decompress(&idat, (stride + 1) * h)?;
     if raw.len() != (stride + 1) * h {
         return Err("PNG pixel data has the wrong size".into());
     }
@@ -584,13 +606,13 @@ mod tests {
         assert_eq!(inflate(&fixed).unwrap(), b"hello hello hello hello\n");
         // Dynamic-Huffman stream (zlib level 9) of "0 1 4 9 16 ..." = i*i mod 97 for i < 120.
         let dynamic: [u8; 147] = [
-            0xa5, 0x90, 0x89, 0x0d, 0x44, 0x21, 0x08, 0x05, 0x5b, 0x99, 0x12, 0x3e, 0xa0, 0xa8, 0xfd, 0x37, 0xb6, 0xa3, 0x2d, 0x6c, 0x62, 0x8c,
-            0xc7, 0x3b, 0xf9, 0x08, 0x06, 0x87, 0x68, 0x72, 0x52, 0xcd, 0x38, 0xf4, 0x60, 0x07, 0x45, 0x0e, 0xc6, 0x62, 0x25, 0x49, 0x05, 0x9d,
-            0x1c, 0x11, 0xc5, 0xfa, 0x88, 0x64, 0x16, 0x47, 0xb4, 0x5c, 0x05, 0x3c, 0x0f, 0xe6, 0xc7, 0xa6, 0x27, 0xb9, 0xd8, 0x9b, 0x39, 0xc8,
-            0x64, 0xab, 0xa6, 0xd4, 0x24, 0x82, 0xdd, 0xb4, 0x8c, 0x4d, 0x25, 0x21, 0x92, 0x53, 0xec, 0xc9, 0x3a, 0x2c, 0xf7, 0x7a, 0xeb, 0x5d,
-            0x7d, 0xf4, 0xab, 0x2f, 0x48, 0xa8, 0x04, 0x69, 0x92, 0xe3, 0x09, 0x29, 0xa7, 0xa8, 0xd2, 0x1a, 0x68, 0xa3, 0x99, 0x96, 0xfb, 0x9a,
-            0x1b, 0xe1, 0x06, 0x89, 0x17, 0xaa, 0x6f, 0x40, 0x63, 0x1a, 0xd6, 0xc8, 0x06, 0xef, 0x57, 0x22, 0x6f, 0x1d, 0x4b, 0x59, 0xad, 0x6e,
-            0x49, 0xab, 0x5a, 0xb8, 0x5e, 0x79, 0x47, 0x70, 0x9c, 0x45, 0xf0, 0xfd, 0x37, 0x93, 0x1f,
+            0xa5, 0x90, 0x89, 0x0d, 0x44, 0x21, 0x08, 0x05, 0x5b, 0x99, 0x12, 0x3e, 0xa0, 0xa8, 0xfd, 0x37, 0xb6, 0xa3, 0x2d, 0x6c, 0x62,
+            0x8c, 0xc7, 0x3b, 0xf9, 0x08, 0x06, 0x87, 0x68, 0x72, 0x52, 0xcd, 0x38, 0xf4, 0x60, 0x07, 0x45, 0x0e, 0xc6, 0x62, 0x25, 0x49,
+            0x05, 0x9d, 0x1c, 0x11, 0xc5, 0xfa, 0x88, 0x64, 0x16, 0x47, 0xb4, 0x5c, 0x05, 0x3c, 0x0f, 0xe6, 0xc7, 0xa6, 0x27, 0xb9, 0xd8,
+            0x9b, 0x39, 0xc8, 0x64, 0xab, 0xa6, 0xd4, 0x24, 0x82, 0xdd, 0xb4, 0x8c, 0x4d, 0x25, 0x21, 0x92, 0x53, 0xec, 0xc9, 0x3a, 0x2c,
+            0xf7, 0x7a, 0xeb, 0x5d, 0x7d, 0xf4, 0xab, 0x2f, 0x48, 0xa8, 0x04, 0x69, 0x92, 0xe3, 0x09, 0x29, 0xa7, 0xa8, 0xd2, 0x1a, 0x68,
+            0xa3, 0x99, 0x96, 0xfb, 0x9a, 0x1b, 0xe1, 0x06, 0x89, 0x17, 0xaa, 0x6f, 0x40, 0x63, 0x1a, 0xd6, 0xc8, 0x06, 0xef, 0x57, 0x22,
+            0x6f, 0x1d, 0x4b, 0x59, 0xad, 0x6e, 0x49, 0xab, 0x5a, 0xb8, 0x5e, 0x79, 0x47, 0x70, 0x9c, 0x45, 0xf0, 0xfd, 0x37, 0x93, 0x1f,
         ];
         let expect: String = (0..120).map(|i| format!("{} ", i * i % 97)).collect();
         assert_eq!(inflate(&dynamic).unwrap(), expect.as_bytes());
@@ -658,6 +680,23 @@ mod tests {
         let (w, h) = (256, 64);
         let data: Vec<u8> = (0..w * h).map(|i| (i % w) as u8).collect();
         assert!(encode(w, h, Pixels::Gray(&data)).len() < w * h / 20);
+    }
+
+    #[test]
+    fn decode_refuses_decompression_bombs() {
+        // A tiny picture whose pixel data inflates to megabytes: rejected before allocating it.
+        let mut png = SIGNATURE.to_vec();
+        let mut ihdr = Vec::new();
+        ihdr.extend(4u32.to_be_bytes());
+        ihdr.extend(4u32.to_be_bytes());
+        ihdr.extend([8, 0, 0, 0, 0]);
+        chunk(&mut png, b"IHDR", &ihdr);
+        chunk(&mut png, b"IDAT", &zlib_compress(&vec![0u8; 8_000_000]));
+        chunk(&mut png, b"IEND", &[]);
+        assert!(png.len() < 60_000);
+        assert!(decode(&png).unwrap_err().contains("expands beyond"));
+        assert!(inflate_limited(&deflate(&[1u8; 5000]), 4999).is_err());
+        assert!(inflate_limited(&deflate(&[1u8; 5000]), 5000).is_ok());
     }
 
     #[test]
