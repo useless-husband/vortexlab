@@ -1,0 +1,5 @@
+/target/
+/results/
+/我的形狀/輸出/
+.DS_Store
+*.tmp

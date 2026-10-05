@@ -1,0 +1,23 @@
+[package]
+name = "vortexlab"
+version = "0.1.0"
+edition = "2021"
+description = "A small from-scratch 2-D lattice-Boltzmann wind tunnel, validated against published benchmarks"
+license = "MIT"
+publish = false
+
+# No dependencies: solver, geometry, FFT, PNG/GIF codecs, plots and the report are all in this crate.
+[dependencies]
+
+[profile.release]
+opt-level = 3
+debug = false
+lto = "thin"
+codegen-units = 4
+
+# Tests run real (small) simulations, so even `cargo test` without --release must be optimised.
+[profile.dev]
+opt-level = 2
+
+[profile.test]
+opt-level = 3
