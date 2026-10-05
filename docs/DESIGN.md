@@ -174,12 +174,12 @@ Both were run on the Schäfer-Turek cases at 20 cells per diameter:
 | | c_D (2D-1), U = 0.04 | U = 0.02 | extrapolated to Ma = 0 | c_Dmax (2D-2), U = 0.05 | U = 0.025 | extrapolated |
 |---|---|---|---|---|---|---|
 | local density | 5.667 | 5.612 | 5.593 | 3.362 | 3.335 | 3.326 |
-| reference density | 5.589 | 5.582 | 5.580 | 3.324 | 3.321 | 3.320 |
+| reference density | 5.589 | 5.593 | 5.594 | 3.324 | 3.327 | 3.328 |
 
 (Extrapolation assumes an error proportional to Ma².) Both variants head for the same incompressible limit, but
-prescribing the mass flux has a several times smaller compressibility error at a given Mach number: forces scale
-with `rho u²`, and with the mass flux fixed the higher inlet density is partly offset by a lower velocity. The
-reference-density form is the one implemented. The 10-cell 2D-2 run diverges with either.
+prescribing the mass flux has a compressibility error of about 0.1 % at these velocities instead of 1.1-1.3 %:
+forces scale with `rho u²`, and with the mass flux fixed the higher inlet density is offset by a lower velocity.
+The reference-density form is the one implemented. Case 2D-2 at 10 cells per diameter diverges with either.
 
 ### 3.6 Reading a frequency more finely than the FFT bin
 

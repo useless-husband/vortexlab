@@ -35,7 +35,7 @@ corners: build
 	$(BIN) corners --tag main --re 200 --d 60 --threads $(THREADS) --out results
 	$(BIN) corners --tag re100 --re 100 --d 40 --no-animation --threads $(THREADS) --out results
 	$(BIN) corners --tag coarse --re 200 --d 40 --no-animation --threads $(THREADS) --out results
-	$(BIN) corners --tag lowmach --re 200 --d 40 --u 0.05 --no-animation --threads $(THREADS) --out results
+	$(BIN) corners --tag lowmach --re 200 --d 40 --u 0.05 --shapes square,double-recessed --no-animation --threads $(THREADS) --out results
 
 # Million lattice updates per second at 1, 2 and 4 threads.
 bench: build
