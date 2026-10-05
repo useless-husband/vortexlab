@@ -1,0 +1,15 @@
+# Published 2-D laminar results for a plain square cylinder in a uniform stream at zero incidence.
+# Source: A. Sohankar, C. Norberg, L. Davidson, "Low-Reynolds-number flow around a square cylinder at incidence:
+#   study of blockage, onset of vortex shedding and outlet boundary condition", Int. J. Numer. Meth. Fluids 26
+#   (1998) 39-56. Table III (blockage study, 96 x 94 / 96 x 132 grids) and Table IV (refinement study; its
+#   coarsest cases are the 5 % blockage runs of Table III). C_L' is the RMS lift coefficient.
+#   Values read 2026-10-05 from the authors' copy of the paper (see docs/REFERENCES.md).
+# Note the grid sensitivity the authors themselves report at Re = 200: St 0.165 -> 0.150 and
+#   C_L' 0.232 -> 0.377 between their coarsest and finest grids.
+# source,shape,re,blockage,cd,st,cl_rms
+sohankar1998-tableIV-case3-finest,square,100,0.05,1.478,0.146,0.153
+sohankar1998-tableIV-case7-finest,square,200,0.05,1.462,0.150,0.377
+sohankar1998-tableIII-case5-coarse,square,100,0.05,1.460,0.146,0.139
+sohankar1998-tableIII-case6-coarse,square,100,0.025,1.444,0.144,0.141
+sohankar1998-tableIII-case1-coarse,square,200,0.05,1.427,0.165,0.232
+sohankar1998-tableIII-case2-coarse,square,200,0.025,1.415,0.165,0.229

@@ -209,3 +209,15 @@ pub fn run_2d2(s: Setup, total_units: f64, window_units: f64) -> Unsteady {
         window_start: i0,
     }
 }
+
+/// Times `steps` steps of the 2D-2 set-up (forces evaluated every step, as in a real run).
+/// Returns the channel (for its size and state hash) and the wall-clock seconds.
+pub fn bench(s: Setup, steps: usize) -> (Channel, f64) {
+    let mut rig = rig(s, 100.0, 8.0);
+    let start = std::time::Instant::now();
+    for _ in 0..steps {
+        rig.ch.step();
+    }
+    let secs = start.elapsed().as_secs_f64();
+    (rig.ch, secs)
+}

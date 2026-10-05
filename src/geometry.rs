@@ -81,6 +81,39 @@ impl Shape for Rotated {
     }
 }
 
+/// Another shape moved by (dx, dy).
+pub struct Translated {
+    pub inner: Box<dyn Shape>,
+    pub dx: f64,
+    pub dy: f64,
+}
+
+impl Shape for Translated {
+    fn inside(&self, x: f64, y: f64) -> bool {
+        self.inner.inside(x - self.dx, y - self.dy)
+    }
+}
+
+/// Bounding box (x_min, x_max, y_min, y_max) of the part of a shape inside the square
+/// |x|, |y| <= `reach`, found by sampling every `step`; `None` if nothing is inside.
+pub fn bounding_box(shape: &dyn Shape, reach: f64, step: f64) -> Option<(f64, f64, f64, f64)> {
+    let n = (2.0 * reach / step).ceil() as usize;
+    let (mut x0, mut x1, mut y0, mut y1) = (f64::MAX, f64::MIN, f64::MAX, f64::MIN);
+    for j in 0..=n {
+        let y = -reach + j as f64 * step;
+        for i in 0..=n {
+            let x = -reach + i as f64 * step;
+            if shape.inside(x, y) {
+                x0 = x0.min(x);
+                x1 = x1.max(x);
+                y0 = y0.min(y);
+                y1 = y1.max(y);
+            }
+        }
+    }
+    (x0 <= x1).then_some((x0 - 0.5 * step, x1 + 0.5 * step, y0 - 0.5 * step, y1 + 0.5 * step))
+}
+
 /// A grey-level picture used as a shape: `level` is 1 inside the body and 0 outside, sampled
 /// at pixel centres; the boundary is the 0.5 contour of the bilinearly interpolated picture,
 /// so the outline is smooth even though the input is made of pixels.
@@ -296,6 +329,15 @@ mod tests {
         let s = section(Corner::Sharp, 0.0, 0.0, 1.0, std::f64::consts::FRAC_PI_4);
         assert!(s.inside(0.69, 0.0) && !s.inside(0.72, 0.0)); // half-diagonal = 0.7071
         assert!(!s.inside(0.45, 0.45));
+    }
+
+    #[test]
+    fn translation_and_bounding_box() {
+        let s = Translated { inner: section(Corner::Sharp, 0.0, 0.0, 4.0, 0.0), dx: 1.0, dy: -0.5 };
+        assert!(s.inside(2.9, 1.4) && !s.inside(3.1, 0.0) && !s.inside(0.0, 1.6));
+        let (x0, x1, y0, y1) = bounding_box(&s, 6.0, 0.05).unwrap();
+        assert!((x0 + 1.0).abs() < 0.06 && (x1 - 3.0).abs() < 0.06 && (y0 + 2.5).abs() < 0.06 && (y1 - 1.5).abs() < 0.06);
+        assert!(bounding_box(&Circle { cx: 50.0, cy: 0.0, r: 1.0 }, 6.0, 0.1).is_none());
     }
 
     #[test]
