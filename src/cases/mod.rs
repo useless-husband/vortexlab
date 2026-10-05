@@ -1,5 +1,8 @@
 //! The experiments: each module sets up a domain, runs it and returns numbers.
 
+pub mod cavity;
+pub mod channel;
+pub mod cylinder;
 pub mod poiseuille;
 
 /// Smooth 0 -> 1 ramp (cubic smoothstep) used to start inlets without a pressure shock.

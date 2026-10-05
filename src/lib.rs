@@ -9,4 +9,6 @@ pub mod cases;
 pub mod geometry;
 pub mod lattice;
 pub mod pool;
+pub mod signal;
 pub mod sim;
+pub mod units;
