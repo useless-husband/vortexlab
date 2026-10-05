@@ -73,8 +73,9 @@ fn judged(v: f64, decimals: usize, iv: Option<(f64, f64)>) -> String {
     }
 }
 
+/// Relative difference of magnitudes: negative when `v` is smaller in magnitude than `r`.
 fn pct(v: f64, r: f64) -> String {
-    format!("{:+.2}%", 100.0 * (v - r) / r.abs())
+    format!("{:+.2}%", 100.0 * (v / r - 1.0))
 }
 
 fn poiseuille(dir: &Path) -> String {
@@ -517,7 +518,7 @@ pub fn build(results: &Path, out: &Path) -> Result<(), String> {
     h += &cylinder(results, "cylinder_2d2.csv", "2D-2", &q2, 0.05);
     h += &unsteady_series(results);
     h += include_str!("report_cylinder_notes.html");
-    h += "<h2 id=\"corners\">4. Experiment: corner modifications of a square tower section <span class=\"zh\">台北 101 的鋸齒角為什麼有用</span></h2>";
+    h += "<h2 id=\"corners\">4. Experiment: corner modifications of a square tower section <span class=\"zh\">台北 101 的鋸齒角實驗</span></h2>";
     h += include_str!("report_corners.html");
     h += &corners(results, out)?;
     h += include_str!("report_corners_notes.html");

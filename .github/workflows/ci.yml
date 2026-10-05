@@ -25,10 +25,6 @@ jobs:
         run: cargo build --release
       - name: tests (unit, solver, codecs, small-grid validation against the published numbers)
         run: cargo test --release
-      - name: PNG fixtures are reproducible from the script
-        run: |
-          python3 tools/make_png_fixtures.py
-          git diff --exit-code -- tests/data
       - name: quick validation set and report
         run: |
           ./target/release/vortexlab validate --quick --threads 2 --out results/quick

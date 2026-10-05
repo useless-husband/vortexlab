@@ -10,7 +10,14 @@
 
 English: [README.md](README.md) · 白話導讀（給初學者）：[docs/導讀.zh-TW.md](docs/導讀.zh-TW.md)
 
-{{TABLE:1}}
+| Check | Reference | Result (finest grid) |
+|---|---|---|
+| Channel flow, exact parabola | analytic | observed order 2.000; exact to rounding (10⁻¹¹ or better) with TRT, Λ = 3/16 |
+| Lid-driven cavity, Re = 1000 | Botella & Peyret (1998), spectral | centreline extrema within 0.20 % at 257 × 257 |
+| Lid-driven cavity, Re = 100, 1000 | Ghia, Ghia & Shin (1982) table | max deviation 0.008 / 0.016 of the lid speed, located where Ghia's table itself is 2-3 % off the spectral values |
+| Cylinder, steady, Re = 20 (2D-1) | Schäfer & Turek (1996) intervals | c_D, c_L, ΔP inside; recirculation length 0.2 % below its interval |
+| Cylinder, periodic, Re = 100 (2D-2) | Schäfer & Turek (1996) intervals | c_Dmax, c_Lmax, St, ΔP inside at 80 cells per diameter; c_Dmax 0.07 % above at 40; diverges at 10 |
+| Same result for any thread count | — | bit-identical populations and forces with 1, 2, 3, 4, 7 threads |
 
 （表格欄位依序是：檢查項目、參考來源、最細網格的結果。）完整的表格、收斂圖、受力歷程和動畫都在自動產生的報告
 **[docs/report/index.html](docs/report/index.html)**（純靜態網頁，沒有任何程式碼，用瀏覽器直接打開檔案即可）。
@@ -22,13 +29,53 @@ English: [README.md](README.md) · 白話導讀（給初學者）：[docs/導讀
 在 macOS 上雙擊 **`跑跑看.command`**（或執行 `make demo`）：先在粗網格上跑 Schäfer–Turek 圓柱標準考題，
 再算一段渦街並存成動畫。以下是真實輸出（英文訊息；雙擊 `跑跑看.command` 時會顯示中文）：
 
-{{CODE:1}}
+```
+$ ./target/release/vortexlab demo
+[1/2] Benchmark: flow past a cylinder in a channel, Schafer & Turek (1996) case 2D-2, Re = 100
+      20 cells per diameter (coarse on purpose, so it finishes in seconds).
+      quantity     computed     published interval
+      c_D max        3.3244       3.2200 - 3.2400   above
+      c_L max        0.9807       0.9900 - 1.0100   below
+      St             0.2988       0.2950 - 0.3050   inside
+      dP             2.4699       2.4600 - 2.5000   inside
+      (5 s; finer grids land closer: see the report)
+
+[2/2] Vortex street behind a circular cylinder in a uniform stream, Re = 150
+   20%  t =   18.0 D/U   Cd =  1.201   Cl = +0.084
+   40%  t =   36.0 D/U   Cd =  1.408   Cl = -0.503
+   60%  t =   54.0 D/U   Cd =  1.455   Cl = +0.584
+   80%  t =   72.0 D/U   Cd =  1.456   Cl = -0.581
+  100%  t =   90.0 D/U   Cd =  1.454   Cl = +0.568
+Result (after the start-up transient):
+  mean drag coefficient              Cd = 1.456
+  mean lift coefficient              Cl = -0.009
+  RMS lift fluctuation               Cl' = 0.416
+  Strouhal number (lift spectrum)    St = 0.1954  (from zero crossings: 0.1954)
+  a 1 cm wide body at this Reynolds number: air 0.225 m/s, drag 4.422e-4 N/m, shedding at 4.40 Hz
+  a 1 cm wide body at this Reynolds number: water 0.015 m/s, drag 1.638e-3 N/m, shedding at 0.29 Hz
+  grid 662 x 302 = 199924 cells, 35660 steps, 19 s, 371 MLUPS
+animation and picture written to results/demo
+```
 
 ### 放自己的形狀進風洞
 
 任何「淺色（或透明）背景、深色形狀」的 PNG 都可以，風從左邊吹來。
 
-{{CODE:2}}
+```
+$ ./target/release/vortexlab shape 我的形狀/機翼.png --re 150 --cells 60 --units 100
+picture 520x220 px -> body 15 cells across the flow, length 3.98 D; Re = 150, Ma = 0.139, tau = 0.5240
+   ...
+  100%  t =   99.9 D/U   Cd =  1.082   Cl = +1.958
+Result (after the start-up transient):
+  mean drag coefficient              Cd = 1.082
+  mean lift coefficient              Cl = +1.879
+  RMS lift fluctuation               Cl' = 0.085
+  Strouhal number (lift spectrum)    St = 0.1815  (from zero crossings: 0.1820)
+  a 1 cm wide body at this Reynolds number: air 0.225 m/s, drag 3.288e-4 N/m, shedding at 4.08 Hz
+  a 1 cm wide body at this Reynolds number: water 0.015 m/s, drag 1.218e-3 N/m, shedding at 0.27 Hz
+  grid 347 x 152 = 52744 cells, 19780 steps, 4 s, 280 MLUPS
+wake.png, vorticity.gif and forces.csv written to 我的形狀/輸出/機翼
+```
 
 程式會在圖片旁邊寫出 `wake.png`（尾流圖）、`vorticity.gif`（一個脫落週期的循環動畫）和 `forces.csv`（受力紀錄）。
 選項：`--re` 雷諾數、`--cells` 形狀較長那一邊切成幾格、`--angle` 旋轉角度、`--units` 模擬多久（單位是 D/U，
@@ -37,7 +84,16 @@ English: [README.md](README.md) · 白話導讀（給初學者）：[docs/導讀
 
 ## 運作原理
 
-{{CODE:3}}
+```
+ populations f_0..f_8 at every node (D2Q9)          one time step
+ ┌──────────────────────────────────────┐   1. bulk nodes, in parallel: pull the nine populations from the
+ │ 6  2  5      stream: f_i moves one   │      upstream neighbours in array A, collide (BGK or TRT), write B
+ │  \ | /       cell along c_i          │   2. boundary nodes, serial, fixed order: for every link that ends
+ │ 3--0--1      collide: relax towards  │      in a wall / inlet / outlet, build the returning population
+ │  / | \       local equilibrium       │      (interpolated bounce-back, moving wall, pressure), collide,
+ │ 7  4  8                              │      add the momentum handed to the body to its force
+ └──────────────────────────────────────┘   3. swap A and B
+```
 
 * **碰撞**（`src/lattice.rs`）：BGK 與雙鬆弛時間（TRT）。TRT 取 Λ = 3/16 時，反彈邊界的牆面剛好落在兩格正中間；
   正式計算都用它。
@@ -70,7 +126,13 @@ English: [README.md](README.md) · 白話導讀（給初學者）：[docs/導讀
 
 ### 管道流（Poiseuille）對照精確解
 
-{{TABLE:2}}
+| scheme | rows 8 → 128, relative L2 error | observed order |
+|---|---|---|
+| BGK, halfway wall | 1.1e-2 → 4.3e-5 | 2.000 |
+| TRT Λ = 1/4, halfway wall | 7.1e-3 → 2.8e-5 | 2.000 |
+| TRT Λ = 3/16, halfway wall | 3e-15 … 2e-11 | exact (rounding) |
+| TRT Λ = 3/16, wall at q = 0.25 (interpolated) | 3.4e-2 → 1.1e-4 | 2.003 |
+| TRT Λ = 3/16, wall at q = 0.80 (interpolated) | 1.5e-2 → 6.9e-5 | 1.997 |
 
 用動量交換法量到的牆面阻力，與驅動流體的總力相等到 10 位數。
 
@@ -78,7 +140,15 @@ English: [README.md](README.md) · 白話導讀（給初學者）：[docs/導讀
 
 與 Ghia 表 I、II 的 2 × 15 個內部點的最大偏差，以及速度剖面極值相對於 Botella 與 Peyret 譜方法結果的差：
 
-{{TABLE:3}}
+| Re | grid | max dev. from Ghia (u, v) | u_min | v_max | v_min |
+|---|---|---|---|---|---|
+| 100 | 65² | 0.0048, 0.0079 | −0.21354 (−0.24 %) | 0.17882 (−0.42 %) | −0.25245 (−0.53 %) |
+| 100 | 129² | 0.0050, 0.0084 | −0.21384 (−0.10 %) | 0.17918 (−0.22 %) | −0.25301 (−0.31 %) |
+| 1000 | 65² | 0.0167, 0.0087 | −0.37995 (−2.22 %) | 0.36766 (−2.46 %) | −0.51217 (−2.83 %) |
+| 1000 | 129² | 0.0045, 0.0115 | −0.38676 (−0.47 %) | 0.37501 (−0.51 %) | −0.52401 (−0.58 %) |
+| 1000 | 257² | 0.0061, 0.0158 | −0.38798 (−0.15 %) | 0.37638 (−0.15 %) | −0.52600 (−0.20 %) |
+| 100 | Ghia 129² | — | −0.21090 (−1.47 %) | 0.17527 (−2.40 %) | −0.24533 (−3.34 %) |
+| 1000 | Ghia 129² | — | −0.38289 (−1.46 %) | 0.37095 (−1.59 %) | −0.51550 (−2.20 %) |
 
 跟 Ghia 的表的偏差不會隨網格變細而縮小，Re = 1000 時甚至變大。原因在最後兩列：Ghia 的表本身是 129² 網格上的
 二階解，它的極值跟譜方法的標準答案差了 1.5–3.3%。這個解算器是往譜方法的值收斂（Re = 1000：2.2% → 0.47% → 0.15%），
@@ -88,11 +158,28 @@ English: [README.md](README.md) · 白話導讀（給初學者）：[docs/導讀
 
 2D-1（定常，Re = 20）：
 
-{{TABLE:4}}
+| cells per D | lattice U | c_D | c_L | L_a (m) | ΔP (Pa) |
+|---|---|---|---|---|---|
+| 10 | 0.04 | ✗ 5.6132 (+0.42 %) | ✓ 0.01050 | ✗ 0.0802 (−4.7 %) | ✗ 0.1133 (−3.4 %) |
+| 20 | 0.04 | ✓ 5.5891 | ✓ 0.01052 | ✗ 0.0834 (−1.0 %) | ✗ 0.1159 (−1.1 %) |
+| 40 | 0.04 | ✓ 5.5789 | ✓ 0.01079 | ✗ 0.0838 (−0.4 %) | ✗ 0.1170 (−0.17 %) |
+| 80 | 0.04 | ✓ 5.5774 | ✓ 0.01079 | ✗ 0.0840 (−0.2 %) | ✓ 0.1173 |
+| 20 | 0.02 | ✗ 5.5928 (+0.05 %) | ✗ 0.01037 (−0.3 %) | ✗ 0.0838 (−0.5 %) | ✗ 0.1162 (−0.9 %) |
+| 1996 interval | | 5.57 – 5.59 | 0.0104 – 0.0110 | 0.0842 – 0.0852 | 0.1172 – 0.1176 |
+| later reference | | 5.57954 | 0.010619 | — | 0.11752 |
 
 2D-2（週期性渦流脫落，Re = 100；ΔP 取升力最大值之後半個週期）：
 
-{{TABLE:5}}
+| cells per D | lattice U | c_D max | c_D min | c_L max | c_L min | St | ΔP (Pa) |
+|---|---|---|---|---|---|---|---|
+| 10 | 0.05 | diverges | | | | | |
+| 20 | 0.05 | ✗ 3.3244 (+2.6 %) | 3.2719 | ✗ 0.9807 (−0.9 %) | −1.0175 | ✓ 0.2988 | ✓ 2.4700 |
+| 40 | 0.05 | ✗ 3.2423 (+0.07 %) | 3.1919 | ✗ 0.9830 (−0.7 %) | −1.0181 | ✓ 0.3006 | ✓ 2.4734 |
+| 80 | 0.05 | ✓ 3.2354 | 3.1840 | ✓ 0.9947 | −1.0295 | ✓ 0.3007 | ✓ 2.4840 |
+| 20 | 0.025 | ✗ 3.3268 (+2.7 %) | 3.2633 | ✗ 0.9797 (−1.0 %) | −1.0167 | ✓ 0.2995 | ✓ 2.4746 |
+| 40 | 0.025 | ✗ 3.2431 (+0.10 %) | 3.1790 | ✗ 0.9792 (−1.1 %) | −1.0144 | ✓ 0.3013 | ✓ 2.4769 |
+| 1996 interval | | 3.22 – 3.24 | — | 0.99 – 1.01 | — | 0.295 – 0.305 | 2.46 – 2.50 |
+| later reference | | 3.2274 | 3.1643 | 0.9866 | −1.0213 | 0.3018 | 2.4848 |
 
 這些表說了什麼（包括不好看的部分）：
 
@@ -118,7 +205,42 @@ English: [README.md](README.md) · 白話導讀（給初學者）：[docs/導讀
 圓角（半徑 0.1 D）、單層內凹（0.1 D 的缺口）、雙層內凹（兩階各 0.05 D）。`make corners` 可重現
 （機器空閒、4 執行緒時，主要那組約 36 分鐘，三組敏感度測試共約 30 分鐘；這裡的結果是在忙碌的機器上跑的，花了 2.2 倍時間）。
 
-{{CORNERS_ZH}}
+主要那一組，Re = 200，每邊 60 格（括號內是相對於直角方柱的變化；表中依序為直角、切角、圓角、單層內凹、雙層內凹（鋸齒））：
+
+| section | mean drag C_D | RMS lift C_L' | Strouhal St |
+|---|---|---|---|
+| sharp square | 1.483 | 0.410 | 0.1594 |
+| chamfered | 1.348 (−9.1 %) | 0.366 (−10.8 %) | 0.1817 (+14.0 %) |
+| rounded | 1.370 (−7.6 %) | 0.354 (−13.5 %) | 0.1778 (+11.5 %) |
+| single recess | 1.364 (−8.1 %) | 0.382 (−6.7 %) | 0.1817 (+14.0 %) |
+| double recess (saw-tooth) | 1.352 (−8.9 %) | 0.375 (−8.5 %) | 0.1825 (+14.5 %) |
+
+敏感度測試（每邊 40 格；依序為較粗的網格、馬赫數減半、Re = 100）：
+
+| set | section | C_D | C_L' | St |
+|---|---|---|---|---|
+| Re = 200, coarser grid | sharp square | 1.465 | 0.390 | 0.1642 |
+| | chamfered | 1.350 (−7.9 %) | 0.365 (−6.4 %) | 0.1816 (+10.6 %) |
+| | rounded | 1.374 (−6.2 %) | 0.354 (−9.2 %) | 0.1779 (+8.3 %) |
+| | single recess | 1.365 (−6.8 %) | 0.385 (−1.3 %) | 0.1820 (+10.8 %) |
+| | double recess | 1.353 (−7.6 %) | 0.377 (−3.4 %) | 0.1827 (+11.3 %) |
+| Re = 200, half the Mach number | sharp square | 1.451 | 0.385 | 0.1648 |
+| | double recess | 1.340 (−7.6 %) | 0.367 (−4.7 %) | 0.1829 (+11.0 %) |
+| Re = 100 | sharp square | 1.500 | 0.183 | 0.1491 |
+| | chamfered | 1.429 (−4.7 %) | 0.182 (−0.5 %) | 0.1554 (+4.2 %) |
+| | rounded | 1.448 (−3.5 %) | 0.178 (−3.0 %) | 0.1534 (+2.9 %) |
+| | single recess | 1.432 (−4.5 %) | 0.188 (+2.5 %) | 0.1563 (+4.8 %) |
+| | double recess | 1.425 (−5.0 %) | 0.184 (+0.6 %) | 0.1564 (+4.9 %) |
+
+在這個模型裡，每一種修角都讓平均阻力下降（Re = 200 約 8–9%，Re = 100 為 3.5–5%）、渦流脫落頻率上升
+（12–15% 與 3–5%），也就是尾流變窄了。這兩點在兩種網格、馬赫數減半之後都成立。升力擺動（RMS）在 Re = 200
+的主網格上下降 7–14%，但這是最不確定的數字：它是相對於直角方柱算的，而直角方柱正是對網格最敏感的那個
+（兩種網格之間阻力差 1.2%、史特豪數差 3%，修角截面則都在 0.3% 以內），在較粗的網格上降幅只有 1–9%。
+Re = 100 時升力擺動的變化不超過 ±3%。四種修角幾乎可以互換；雙層內凹並沒有比同尺寸的切角好。
+
+直角方柱方面，Sohankar、Norberg 與 Davidson（1998）在最細網格（阻塞比 5%）給的是：Re = 100 時 C_D 1.478、
+St 0.146、C_L' 0.153；Re = 200 時 C_D 1.462、St 0.150、C_L' 0.377。這裡的阻力在兩個雷諾數都高 1.5%，
+史特豪數高 2% 與 6%，升力 RMS 高 20% 與 9%。
 
 **這個實驗能說什麼、不能說什麼。** 模擬是二維、層流、雷諾數 100–200。真實的塔是三維的，處在有紊流和風速梯度的
 風場裡，雷諾數約 10⁸；而且實際量測的是結構反應（基底彎矩、加速度），那還取決於漩渦脫落沿高度方向同步的程度，
@@ -135,7 +257,22 @@ English: [README.md](README.md) · 白話導讀（給初學者）：[docs/導讀
 
 ## 效能
 
-{{BENCH_ZH}}
+`make bench`：圓柱標準考題的設定（TRT，每一步都處理邊界並計算受力），Apple M5（10 核心、16 GB），
+在機器沒有其他工作時量測（欄位：網格、流體格點數、1／2／4 執行緒）：
+
+| grid | fluid nodes | 1 thread | 2 threads | 4 threads |
+|---|---|---|---|---|
+| 882 × 166 | 143 056 | 130 MLUPS | 243 MLUPS | 374 MLUPS |
+| 1762 × 330 | 572 256 | 131 MLUPS | 251 MLUPS | 395 MLUPS |
+
+MLUPS = 每秒更新幾百萬個格點。基準測試印出的狀態雜湊值在每一種執行緒數下都相同。這台機器是共用的：
+同一個測試在其他工作同時執行（負載平均超過 8）時量到的是 108、88、133 MLUPS，所以上表應視為最佳情況。
+
+作為量級參考：lbmpy 的論文（Bauer、Köstler 與 Rüde 2021，第 V.A 節）報告，自動產生、以 AVX-512 向量化的 D3Q19
+單鬆弛時間核心，在一顆 Xeon Gold 6148 的 20 個核心上「約 300 MLUP/s」，受記憶體頻寬限制；換算每核心 15 MLUPS、
+每格點 19 個分佈，約每核心每秒 2.85 億次分佈更新。這裡的純量核心單核心 130 MLUPS、每格點 9 個分佈，
+約每秒 11.7 億次分佈更新，4 執行緒時每核心約 8.9 億次。這不是對等的比較（二維對三維、單核心小網格對記憶體飽和的
+整顆處理器、相隔多年的不同機器）；它只說明一個直接寫的 pull 式核心落在正式程式的量級內，不代表比較快。
 
 ## 測試
 
@@ -178,7 +315,17 @@ vortexlab 只是一個小型的教學用解算器，以上功能都沒有，也�
 
 需要新版的 stable Rust（以 1.98 建置與測試）。其他都不用：沒有相依套件、不連網路、不開連接埠。
 
-{{CODE:4}}
+```
+make build      # cargo build --release
+make test       # all tests
+make lint       # rustfmt + clippy
+make demo       # coarse benchmark + animated vortex street
+make quick      # every validation case on small grids (about a minute)
+make validate   # full validation
+make corners    # corner experiment
+make bench      # MLUPS
+make report     # regenerate docs/report from results/
+```
 
 ## 授權
 

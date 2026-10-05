@@ -119,7 +119,7 @@ threads and compares a hash of every population bit and the force bits; `vortexl
 ### 3.2 Sound waves that would not die
 
 LBM is a weakly *compressible* method, so the domain is also an acoustic cavity. The first tunnel runs showed the
-drag of a square cylinder wandering by ±10 % with a period of about 17 convective time units: a plane sound wave
+drag of a square cylinder wandering by ±10 % over 10-20 convective time units: a plane sound wave
 bouncing between the velocity inlet (a rigid wall for sound) and the constant-pressure outlet (a pressure-release
 surface), with nothing but the tiny bulk viscosity to damp it.
 
@@ -207,7 +207,7 @@ computed from the mean spacing of upward mean-crossings and reported next to it.
 | MRT collision | TRT already fixes the wall-location error and stabilises low viscosity with one free parameter that has a clear meaning; MRT adds several more to tune and document. |
 | Zou-He (non-equilibrium bounce-back) inlets/outlets | need special corner treatment and are less robust at low viscosity; expressing every boundary as a link rule keeps one code path and makes corners trivial. |
 | in-place streaming (AA pattern, swap) | halves memory traffic, but makes the update order-dependent and determinism across threads much harder to argue. Memory is not the constraint at these sizes. |
-| hand-written SIMD | the scalar kernel reaches about 100 million node updates per second per core on the development machine, already more than a published production code reports per core for its 3-D lattice (see README, Performance); not worth the unsafe surface. |
+| hand-written SIMD | the scalar kernel reaches about 130 million node updates per second per core on the development machine, already more than a published production code reports per core for its 3-D lattice (see README, Performance); not worth the unsafe surface. |
 | convective (Orlanski) outlet | passes vortices well but pins no pressure level and does not absorb plane sound waves, which were the actual problem. |
 | sponge layers | absorb short waves; the troublesome modes here have wavelengths several times the domain, where a thin sponge acts as a (reflecting) pressure-release surface. |
 | incompressible (He-Luo) equilibrium | removes part of the Ma² error in steady flow but changes the meaning of density and pressure; a Mach-number sensitivity row in the validation tables is more transparent. |

@@ -38,13 +38,24 @@ $ ./target/release/vortexlab demo
       c_D max        3.3244       3.2200 - 3.2400   above
       c_L max        0.9807       0.9900 - 1.0100   below
       St             0.2988       0.2950 - 0.3050   inside
-      dP             2.4700       2.4600 - 2.5000   inside
-      (7 s; finer grids land closer: see the report)
+      dP             2.4699       2.4600 - 2.5000   inside
+      (5 s; finer grids land closer: see the report)
 
 [2/2] Vortex street behind a circular cylinder in a uniform stream, Re = 150
-   20%  t =   18.0 D/U   Cd =  1.196   Cl = +0.266
-   ...
-{{DEMO_TAIL}}
+   20%  t =   18.0 D/U   Cd =  1.201   Cl = +0.084
+   40%  t =   36.0 D/U   Cd =  1.408   Cl = -0.503
+   60%  t =   54.0 D/U   Cd =  1.455   Cl = +0.584
+   80%  t =   72.0 D/U   Cd =  1.456   Cl = -0.581
+  100%  t =   90.0 D/U   Cd =  1.454   Cl = +0.568
+Result (after the start-up transient):
+  mean drag coefficient              Cd = 1.456
+  mean lift coefficient              Cl = -0.009
+  RMS lift fluctuation               Cl' = 0.416
+  Strouhal number (lift spectrum)    St = 0.1954  (from zero crossings: 0.1954)
+  a 1 cm wide body at this Reynolds number: air 0.225 m/s, drag 4.422e-4 N/m, shedding at 4.40 Hz
+  a 1 cm wide body at this Reynolds number: water 0.015 m/s, drag 1.638e-3 N/m, shedding at 0.29 Hz
+  grid 662 x 302 = 199924 cells, 35660 steps, 19 s, 371 MLUPS
+animation and picture written to results/demo
 ```
 
 ### Bring your own shape
@@ -53,7 +64,18 @@ Any PNG with a dark shape on a light (or transparent) background works; the flow
 
 ```
 $ ./target/release/vortexlab shape 我的形狀/機翼.png --re 150 --cells 60 --units 100
-{{SHAPE_OUT}}
+picture 520x220 px -> body 15 cells across the flow, length 3.98 D; Re = 150, Ma = 0.139, tau = 0.5240
+   ...
+  100%  t =   99.9 D/U   Cd =  1.082   Cl = +1.958
+Result (after the start-up transient):
+  mean drag coefficient              Cd = 1.082
+  mean lift coefficient              Cl = +1.879
+  RMS lift fluctuation               Cl' = 0.085
+  Strouhal number (lift spectrum)    St = 0.1815  (from zero crossings: 0.1820)
+  a 1 cm wide body at this Reynolds number: air 0.225 m/s, drag 3.288e-4 N/m, shedding at 4.08 Hz
+  a 1 cm wide body at this Reynolds number: water 0.015 m/s, drag 1.218e-3 N/m, shedding at 0.27 Hz
+  grid 347 x 152 = 52744 cells, 19780 steps, 4 s, 280 MLUPS
+wake.png, vorticity.gif and forces.csv written to 我的形狀/輸出/機翼
 ```
 
 It writes `wake.png`, `vorticity.gif` (one shedding period, looped) and `forces.csv` next to the picture. Options:
@@ -102,8 +124,9 @@ for a 1 cm body in air and in water.
 
 ## Validation
 
-Reproduce with `make validate` (all cases, full resolution: 12 min on an otherwise idle machine, 22 min when the
-machine was busy; 4 threads) and `make report`. Reference values and their sources are in
+Reproduce with `make validate` and `make report`. Measured runtime of the full set with 4 threads: 1292 s while
+the machine was busy with other jobs, plus 340 s (2 threads) for the half-velocity 40-cell case added afterwards;
+an earlier run of nearly the same list took 692 s on a quiet machine. Reference values and their sources are in
 [`data/reference/`](data/reference) and [docs/REFERENCES.md](docs/REFERENCES.md). ✓ = inside the published
 interval, ✗ = outside (distance to the interval in brackets).
 
@@ -163,7 +186,7 @@ Case 2D-2 (periodic, Re = 100; ΔP half a period after the lift maximum):
 | 40 | 0.05 | ✗ 3.2423 (+0.07 %) | 3.1919 | ✗ 0.9830 (−0.7 %) | −1.0181 | ✓ 0.3006 | ✓ 2.4734 |
 | 80 | 0.05 | ✓ 3.2354 | 3.1840 | ✓ 0.9947 | −1.0295 | ✓ 0.3007 | ✓ 2.4840 |
 | 20 | 0.025 | ✗ 3.3268 (+2.7 %) | 3.2633 | ✗ 0.9797 (−1.0 %) | −1.0167 | ✓ 0.2995 | ✓ 2.4746 |
-{{ROW_40_0025}}
+| 40 | 0.025 | ✗ 3.2431 (+0.10 %) | 3.1790 | ✗ 0.9792 (−1.1 %) | −1.0144 | ✓ 0.3013 | ✓ 2.4769 |
 | 1996 interval | | 3.22 – 3.24 | — | 0.99 – 1.01 | — | 0.295 – 0.305 | 2.46 – 2.50 |
 | later reference | | 3.2274 | 3.1643 | 0.9866 | −1.0213 | 0.3018 | 2.4848 |
 
@@ -175,10 +198,12 @@ What these tables say, including the unflattering parts:
 * **Periodic case, maxima.** All four benchmark quantities are inside the 1996 intervals at 80 cells per diameter.
   The 1996 interval for the maximum lift does not contain the later reference value (0.9866), so "inside" is not
   the same as "right": at 80 cells this solver's maximum lift is 0.8 % above the later value, and at 40 cells it
-  was 0.4 % below. The lift amplitude does not converge monotonically.
+  was 0.4 % below. The lift amplitude does not converge monotonically, and the 80-cell run was made at one Mach
+  number only: judging from the half-velocity rows at 20 and 40 cells (c_Dmax +0.1 %, c_Lmax −0.1 to −0.4 %), the
+  80-cell c_Dmax would sit at about the upper end of its interval at lower Mach number.
 * **Periodic case, drag oscillation.** The peak-to-peak drag variation is 0.051 here against 0.063 in the later
   reference, 18 % too small at lattice velocity 0.05, and it does not improve with resolution. It does improve at
-  half the velocity (0.063 at 20 cells): this is a compressibility effect. The channel is 22 diameters long, and
+  half the velocity (0.063 at 20 cells, 0.064 at 40): this is a compressibility effect. The channel is 22 diameters long, and
   the time sound needs to cross it is comparable to the period of the drag oscillation, so the pressure field
   cannot adjust along the whole channel "instantly" as it does in an incompressible fluid. The mean drag and the
   shedding frequency are much less sensitive. A 2D-2 result closer to the reference would need a lower Mach
@@ -196,9 +221,47 @@ RWDI reports that softening the corners "reduced the base wind-induced base bend
 
 Here five sections of equal width D are put in the same tunnel (uniform stream, 5 % blockage, zero incidence):
 sharp, chamfered (0.1 D legs), rounded (radius 0.1 D), single recess (0.1 D notch) and double recess (two steps of
-0.05 D). `make corners` reproduces everything (about 50 min for the main set, 30 min for the others; 4 threads).
+0.05 D). `make corners` reproduces everything (with 4 threads on a quiet machine about 36 min for the main set and 30 min
+for the three sensitivity sets; the runs shown here took 2.2 times longer on a busy machine).
 
-{{CORNERS}}
+Main set, Re = 200, 60 cells per side (changes relative to the sharp square in brackets):
+
+| section | mean drag C_D | RMS lift C_L' | Strouhal St |
+|---|---|---|---|
+| sharp square | 1.483 | 0.410 | 0.1594 |
+| chamfered | 1.348 (−9.1 %) | 0.366 (−10.8 %) | 0.1817 (+14.0 %) |
+| rounded | 1.370 (−7.6 %) | 0.354 (−13.5 %) | 0.1778 (+11.5 %) |
+| single recess | 1.364 (−8.1 %) | 0.382 (−6.7 %) | 0.1817 (+14.0 %) |
+| double recess (saw-tooth) | 1.352 (−8.9 %) | 0.375 (−8.5 %) | 0.1825 (+14.5 %) |
+
+Sensitivity sets (40 cells per side):
+
+| set | section | C_D | C_L' | St |
+|---|---|---|---|---|
+| Re = 200, coarser grid | sharp square | 1.465 | 0.390 | 0.1642 |
+| | chamfered | 1.350 (−7.9 %) | 0.365 (−6.4 %) | 0.1816 (+10.6 %) |
+| | rounded | 1.374 (−6.2 %) | 0.354 (−9.2 %) | 0.1779 (+8.3 %) |
+| | single recess | 1.365 (−6.8 %) | 0.385 (−1.3 %) | 0.1820 (+10.8 %) |
+| | double recess | 1.353 (−7.6 %) | 0.377 (−3.4 %) | 0.1827 (+11.3 %) |
+| Re = 200, half the Mach number | sharp square | 1.451 | 0.385 | 0.1648 |
+| | double recess | 1.340 (−7.6 %) | 0.367 (−4.7 %) | 0.1829 (+11.0 %) |
+| Re = 100 | sharp square | 1.500 | 0.183 | 0.1491 |
+| | chamfered | 1.429 (−4.7 %) | 0.182 (−0.5 %) | 0.1554 (+4.2 %) |
+| | rounded | 1.448 (−3.5 %) | 0.178 (−3.0 %) | 0.1534 (+2.9 %) |
+| | single recess | 1.432 (−4.5 %) | 0.188 (+2.5 %) | 0.1563 (+4.8 %) |
+| | double recess | 1.425 (−5.0 %) | 0.184 (+0.6 %) | 0.1564 (+4.9 %) |
+
+In this model every modification lowers the mean drag (about 8-9 % at Re = 200, 3.5-5 % at Re = 100) and raises the
+shedding frequency (12-15 % and 3-5 %): the wake is narrower. Those two findings hold on both grids and at half the
+Mach number. The RMS lift falls by 7-14 % at Re = 200 on the main grid, but that figure is the least certain: it
+is measured against the sharp square, which is the grid-sensitive case (its drag changes by 1.2 % and its Strouhal
+number by 3 % between the grids, the modified sections by under 0.3 %), and on the coarser grid the reductions are
+only 1-9 %. At Re = 100 the lift fluctuation does not change beyond ±3 %. The four modifications are nearly
+interchangeable; the double recess is not better than a chamfer of the same size.
+
+For the plain square, Sohankar, Norberg & Davidson (1998) give C_D 1.478, St 0.146, C_L' 0.153 at Re = 100 and
+C_D 1.462, St 0.150, C_L' 0.377 at Re = 200 on their finest grids (5 % blockage). The values here are 1.5 % higher
+in drag at both Reynolds numbers, 2 % and 6 % higher in Strouhal number, and 20 % and 9 % higher in RMS lift.
 
 **What this can and cannot say.** The simulation is two-dimensional and laminar at Reynolds number 100-200. The
 tower is three-dimensional, in a turbulent sheared wind, at a Reynolds number of order 10⁸, and what was measured
@@ -219,7 +282,25 @@ correlated along the height and how close its frequency is to the building's nat
 
 ## Performance
 
-{{BENCH}}
+`make bench`: the cylinder-benchmark set-up (TRT, boundary handling and force evaluation every step), Apple M5
+(10 cores, 16 GB), measured while the machine was otherwise quiet:
+
+| grid | fluid nodes | 1 thread | 2 threads | 4 threads |
+|---|---|---|---|---|
+| 882 × 166 | 143 056 | 130 MLUPS | 243 MLUPS | 374 MLUPS |
+| 1762 × 330 | 572 256 | 131 MLUPS | 251 MLUPS | 395 MLUPS |
+
+MLUPS = million lattice-node updates per second. The state hash printed by the benchmark is identical for every
+thread count. The machine is shared: an earlier measurement of the same benchmark taken while other jobs were
+running (load average above 8) gave 108, 88 and 133 MLUPS, so treat these as best-case numbers.
+
+For scale, the lbmpy paper (Bauer, Köstler & Rüde 2021, section V.A) reports "about 300 MLUP/s" for a generated,
+AVX-512-vectorised D3Q19 single-relaxation-time kernel on all 20 cores of a Xeon Gold 6148 socket, limited by
+memory bandwidth: 15 MLUPS per core with 19 populations per node, about 285 million population updates per core
+and second. The scalar kernel here does 130 MLUPS on one core with 9 populations per node, about 1170 million
+population updates per second, and 890 million per core at 4 threads. This is not a like-for-like comparison
+(2-D against 3-D, a small grid on one core against a memory-saturated socket, different machines years apart); it
+shows only that a straightforward pull-scheme kernel is in the range of production codes, not that it is faster.
 
 ## Tests
 
