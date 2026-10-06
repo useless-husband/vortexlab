@@ -194,15 +194,13 @@ struct Quantity {
     decimals: usize,
 }
 
-fn cylinder(dir: &Path, file: &str, case: &str, quantities: &[Quantity], base_u: f64) -> String {
+fn cylinder(dir: &Path, file: &str, case: &str, quantities: &[Quantity]) -> String {
     let Some(t) = Table::read(&dir.join(file)) else { return String::from("<p>Not run.</p>") };
     let mut head: Vec<String> = vec!["cells per D".into(), "lattice U".into()];
     head.extend(quantities.iter().map(|q| q.label.to_string()));
     let mut rows = Vec::new();
     let mut order: Vec<usize> = (0..t.rows.len()).collect();
-    order.sort_by(|&a, &b| {
-        (t.num(a, "u_mean") != base_u, t.num(a, "n") as usize).cmp(&(t.num(b, "u_mean") != base_u, t.num(b, "n") as usize))
-    });
+    order.sort_by(|&a, &b| t.num(b, "u_mean").total_cmp(&t.num(a, "u_mean")).then(t.num(a, "n").total_cmp(&t.num(b, "n"))));
     for r in order {
         let mut cells = vec![t.text(r, "n").to_string(), t.text(r, "u_mean").to_string()];
         for q in quantities {
@@ -223,28 +221,93 @@ fn cylinder(dir: &Path, file: &str, case: &str, quantities: &[Quantity], base_u:
     rows.push((iv, true));
     rows.push((later, true));
     let head_refs: Vec<&str> = head.iter().map(String::as_str).collect();
+    let mut speeds: Vec<f64> = Vec::new();
+    for r in 0..t.rows.len() {
+        if !speeds.contains(&t.num(r, "u_mean")) {
+            speeds.push(t.num(r, "u_mean"));
+        }
+    }
+    speeds.sort_by(|a, b| b.total_cmp(a));
+    let cells: Vec<f64> = (0..t.rows.len()).map(|r| t.num(r, "n")).collect();
+    let x_span = (cells.iter().copied().fold(f64::MAX, f64::min), cells.iter().copied().fold(f64::MIN, f64::max));
     let mut figs = String::new();
     for q in quantities {
         let Some((lo, hi)) = reference::st_interval(case, q.key) else { continue };
-        let pts: Vec<(f64, f64)> =
-            (0..t.rows.len()).filter(|&r| t.num(r, "u_mean") == base_u).map(|r| (t.num(r, "n"), t.num(r, q.key))).collect();
         let mut plot = Plot::new("cells per cylinder diameter", q.label);
         (plot.w, plot.h, plot.log_x) = (330.0, 230.0, true);
-        plot.desc = format!("{} against resolution with the published reference interval as a band.", q.label);
+        plot.desc =
+            format!("{} against resolution, one curve per lattice velocity, with the published reference interval as a band.", q.label);
         plot.bands.push((lo, hi, "1996 interval".into()));
-        plot.series.push(Series::both(q.label, 1, pts));
+        for (k, &u) in speeds.iter().enumerate() {
+            let mut pts: Vec<(f64, f64)> =
+                (0..t.rows.len()).filter(|&r| t.num(r, "u_mean") == u).map(|r| (t.num(r, "n"), t.num(r, q.key))).collect();
+            pts.sort_by(|a, b| a.0.total_cmp(&b.0));
+            plot.series.push(Series::both(&format!("U = {u}"), k + 1, pts));
+        }
         if let Some(v) = reference::st_later(case, q.key) {
-            let x: Vec<f64> = plot.series[0].pts.iter().map(|p| p.0).collect();
-            plot.series.push(Series::line("later reference", 2, vec![(x[0], v), (x[x.len() - 1], v)]).dashed());
+            plot.series.push(Series::line("later reference", speeds.len() + 1, vec![(x_span.0, v), (x_span.1, v)]).dashed());
         }
         figs += &fig(q.label, &plot.render(), "");
     }
     format!("{}<div class=\"figs\">{figs}</div>", table(&head_refs, &rows))
 }
 
+/// Case 2D-2 at several lattice velocities on the same grid: oscillation amplitudes and maxima
+/// against the later reference, and an extrapolation to Mach number zero from the two lowest
+/// velocities that assumes the compressibility error is proportional to Ma².
+fn mach_effect(dir: &Path) -> String {
+    let Some(t) = Table::read(&dir.join("cylinder_2d2.csv")) else { return String::new() };
+    let later = |k: &str| reference::st_later("2D-2", k).unwrap_or(f64::NAN);
+    let refs = [later("cd_max") - later("cd_min"), later("cl_max") - later("cl_min"), later("cd_max"), later("cl_max"), later("st")];
+    let q = |r: usize| {
+        [
+            t.num(r, "cd_max") - t.num(r, "cd_min"),
+            t.num(r, "cl_max") - t.num(r, "cl_min"),
+            t.num(r, "cd_max"),
+            t.num(r, "cl_max"),
+            t.num(r, "st"),
+        ]
+    };
+    let cells = |v: [f64; 5]| -> Vec<String> { v.iter().zip(refs).map(|(x, r)| format!("{x:.4} ({})", pct(*x, r))).collect() };
+    let mut ns: Vec<usize> = (0..t.rows.len()).map(|r| t.num(r, "n") as usize).collect();
+    ns.sort_unstable();
+    ns.dedup();
+    let mut rows = Vec::new();
+    for n in ns {
+        let mut rs: Vec<usize> = (0..t.rows.len()).filter(|&r| t.num(r, "n") as usize == n).collect();
+        if rs.len() < 2 {
+            continue;
+        }
+        rs.sort_by(|&a, &b| t.num(b, "u_mean").total_cmp(&t.num(a, "u_mean")));
+        for &r in &rs {
+            let mut row = vec![n.to_string(), t.text(r, "u_mean").into(), format!("{:.3}", crate::units::mach(t.num(r, "u_mean")))];
+            row.extend(cells(q(r)));
+            rows.push((row, false));
+        }
+        let (a, b) = (rs[rs.len() - 2], rs[rs.len() - 1]);
+        let (ua, ub) = (t.num(a, "u_mean"), t.num(b, "u_mean"));
+        let w = ub * ub / (ua * ua - ub * ub);
+        let (va, vb) = (q(a), q(b));
+        let mut row = vec![n.to_string(), "→ 0 (extrapolated)".into(), "0".into()];
+        row.extend(cells(std::array::from_fn(|i| vb[i] + w * (vb[i] - va[i]))));
+        rows.push((row, false));
+    }
+    if rows.is_empty() {
+        return String::new();
+    }
+    let mut row = vec!["later reference (FeatFlow)".to_string(), String::new(), String::new()];
+    row.extend(refs.iter().map(|v| format!("{v:.4}")));
+    rows.push((row, true));
+    let mut o = String::from("<h3>Case 2D-2: Mach-number dependence</h3><p>The same grids at several lattice velocities (Ma = √3 U for the mean inflow velocity). Percentages are relative to the later reference. The extrapolated rows use the two lowest velocities and assume an error proportional to Ma²; where three velocities were run, the spacing of the three values tests that assumption.</p>");
+    o += &table(&["cells per D", "lattice U", "Ma", "c_D max − min", "c_L max − min", "c_D max", "c_L max", "St"], &rows);
+    o
+}
+
 fn unsteady_series(dir: &Path) -> String {
     let Some(t) = Table::read(&dir.join("cylinder_2d2.csv")) else { return String::new() };
-    let Some(best) = (0..t.rows.len()).max_by_key(|&r| t.num(r, "n") as usize) else { return String::new() };
+    let finest_slowest =
+        |&a: &usize, &b: &usize| t.num(a, "n").total_cmp(&t.num(b, "n")).then(t.num(b, "u_mean").total_cmp(&t.num(a, "u_mean")));
+    let Some(best) = (0..t.rows.len()).max_by(finest_slowest) else { return String::new() };
     let (n, u) = (t.text(best, "n"), t.text(best, "u_mean"));
     let Some(s) = Table::read(&dir.join(format!("cylinder_2d2_series_n{n}_u{u}.csv"))) else { return String::new() };
     let col = |name: &str| -> Vec<(f64, f64)> { (0..s.rows.len()).map(|r| (0.1 * s.num(r, "t"), s.num(r, name))).collect() };
@@ -267,7 +330,7 @@ fn unsteady_series(dir: &Path) -> String {
     plot.desc = "Amplitude spectrum of the lift coefficient: one sharp line at the shedding frequency and its odd harmonics.".into();
     plot.series.push(Series::line("lift spectrum", 1, spec));
     figs += &fig("lift spectrum", &plot.render(), "Hann window, 8x zero padding; the Strouhal number is the interpolated peak.");
-    format!("<h3>Force history, {n} cells per diameter</h3><div class=\"figs\">{figs}</div>")
+    format!("<h3>Force history, {n} cells per diameter, lattice U = {u}</h3><div class=\"figs\">{figs}</div>")
 }
 
 const SHAPE_LABEL: [(&str, &str, &str); 5] = [
@@ -319,6 +382,47 @@ fn corner_rows(t: &Table) -> Vec<(Vec<String>, bool)> {
         ));
     }
     rows
+}
+
+/// Run sets that differ only in resolution (same Reynolds number, velocity, corner size and
+/// blockage as the main set): each value at each grid, with its change against the square.
+fn corner_resolution(tables: &[(String, Table)]) -> String {
+    let key = |t: &Table| ["re", "u", "b", "blockage"].map(|k| t.text(0, k).to_string());
+    let Some((_, main)) = tables.first() else { return String::new() };
+    let mut sets: Vec<&Table> = tables.iter().map(|x| &x.1).filter(|t| key(t) == key(main)).collect();
+    if sets.len() < 2 {
+        return String::new();
+    }
+    sets.sort_by(|a, b| a.num(0, "d").total_cmp(&b.num(0, "d")));
+    let finest = sets[sets.len() - 1];
+    let mut head = vec!["section".to_string()];
+    head.extend(sets.iter().map(|t| format!("{} cells / D", t.text(0, "d"))));
+    let head_refs: Vec<&str> = head.iter().map(String::as_str).collect();
+    let mut o = format!(
+        "<h3>Grid dependence at Re = {}</h3><p>The sections that were run on every grid, at the same Reynolds number, velocity and blockage. In brackets: the change against the sharp square on the same grid. Sections missing from the finest grid are left out.</p>",
+        main.text(0, "re")
+    );
+    for (k, title, dec) in [("cd_mean", "Mean drag C_D", 3), ("cl_rms", "RMS lift C_L'", 3), ("st", "Strouhal number St", 4)] {
+        let mut rows = Vec::new();
+        for (shape, _, _) in SHAPE_LABEL {
+            if !(0..finest.rows.len()).any(|r| finest.text(r, "shape") == shape) {
+                continue;
+            }
+            let mut row = vec![label(shape).to_string()];
+            for t in &sets {
+                let find = |s: &str| (0..t.rows.len()).find(|&r| t.text(r, "shape") == s);
+                row.push(match (find(shape), find("square")) {
+                    (Some(r), Some(b)) if r != b => format!("{:.dec$} ({})", t.num(r, k), pct(t.num(r, k), t.num(b, k))),
+                    (Some(r), _) => format!("{:.dec$}", t.num(r, k)),
+                    (None, _) => "–".into(),
+                });
+            }
+            rows.push((row, false));
+        }
+        let _ = write!(o, "<h4>{title}</h4>");
+        o += &table(&head_refs, &rows);
+    }
+    o
 }
 
 fn corners(dir: &Path, out: &Path) -> Result<String, String> {
@@ -425,6 +529,7 @@ fn corners(dir: &Path, out: &Path) -> Result<String, String> {
     }
     o += "<h3>The plain square against published 2-D results</h3>";
     o += &table(&["source", "Re", "blockage", "resolution", "C_D", "St", "C_L'"], &rows);
+    o += &corner_resolution(&tables);
     if tables.len() > 1 {
         o += "<h3>Other run sets (sensitivity)</h3>";
         for (tag, t) in &tables[1..] {
@@ -513,9 +618,10 @@ pub fn build(results: &Path, out: &Path) -> Result<(), String> {
     h += "<h2 id=\"cylinder\">3. Cylinder in a channel: the Schäfer–Turek benchmark <span class=\"zh\">圓柱繞流標準考題</span></h2>";
     h += include_str!("report_cylinder.html");
     h += "<h3>Case 2D-1: steady flow, Re = 20</h3>";
-    h += &cylinder(results, "cylinder_2d1.csv", "2D-1", &q1, 0.04);
+    h += &cylinder(results, "cylinder_2d1.csv", "2D-1", &q1);
     h += "<h3>Case 2D-2: periodic vortex shedding, Re = 100</h3>";
-    h += &cylinder(results, "cylinder_2d2.csv", "2D-2", &q2, 0.05);
+    h += &cylinder(results, "cylinder_2d2.csv", "2D-2", &q2);
+    h += &mach_effect(results);
     h += &unsteady_series(results);
     h += include_str!("report_cylinder_notes.html");
     h += "<h2 id=\"corners\">4. Experiment: corner modifications of a square tower section <span class=\"zh\">台北 101 的鋸齒角實驗</span></h2>";
