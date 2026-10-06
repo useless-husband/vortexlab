@@ -284,12 +284,27 @@ fn mach_effect(dir: &Path) -> String {
             row.extend(cells(q(r)));
             rows.push((row, false));
         }
-        let (a, b) = (rs[rs.len() - 2], rs[rs.len() - 1]);
-        let (ua, ub) = (t.num(a, "u_mean"), t.num(b, "u_mean"));
-        let w = ub * ub / (ua * ua - ub * ub);
-        let (va, vb) = (q(a), q(b));
+        // Extrapolate only from three velocities, and only quantities that move the same way at
+        // both halvings; a plain O(Ma²) error would also shrink four-fold from one to the next.
+        if rs.len() < 3 {
+            continue;
+        }
+        let (a, b, c) = (rs[rs.len() - 3], rs[rs.len() - 2], rs[rs.len() - 1]);
+        let (ub, uc) = (t.num(b, "u_mean"), t.num(c, "u_mean"));
+        let w = uc * uc / (ub * ub - uc * uc);
+        let (va, vb, vc) = (q(a), q(b), q(c));
         let mut row = vec![n.to_string(), "→ 0 (extrapolated)".into(), "0".into()];
-        row.extend(cells(std::array::from_fn(|i| vb[i] + w * (vb[i] - va[i]))));
+        for i in 0..5 {
+            let (d1, d2) = (vb[i] - va[i], vc[i] - vb[i]);
+            let x = vc[i] + w * d2;
+            row.push(if d1 * d2 <= 0.0 {
+                "not monotonic".into()
+            } else if (2.0..=8.0).contains(&(d1 / d2)) {
+                format!("{x:.4} ({}; changes {:.1} : 1)", pct(x, refs[i]), d1 / d2)
+            } else {
+                format!("changes {:.1} : 1, not O(Ma²)", d1 / d2)
+            });
+        }
         rows.push((row, false));
     }
     if rows.is_empty() {
@@ -298,7 +313,7 @@ fn mach_effect(dir: &Path) -> String {
     let mut row = vec!["later reference (FeatFlow)".to_string(), String::new(), String::new()];
     row.extend(refs.iter().map(|v| format!("{v:.4}")));
     rows.push((row, true));
-    let mut o = String::from("<h3>Case 2D-2: Mach-number dependence</h3><p>The same grids at several lattice velocities (Ma = √3 U for the mean inflow velocity). Percentages are relative to the later reference. The extrapolated rows use the two lowest velocities and assume an error proportional to Ma²; where three velocities were run, the spacing of the three values tests that assumption.</p>");
+    let mut o = String::from("<h3>Case 2D-2: Mach-number dependence</h3><p>The same grids at several lattice velocities (Ma = √3 U for the mean inflow velocity). Percentages are relative to the later reference. Extrapolated rows are given only where three velocities were run. An error proportional to Ma² would make the change at the first halving of the velocity four times the change at the second; the ratio is shown, and a value extrapolated from the two lowest velocities only where that ratio is between 2 and 8.</p>");
     o += &table(&["cells per D", "lattice U", "Ma", "c_D max − min", "c_L max − min", "c_D max", "c_L max", "St"], &rows);
     o
 }
