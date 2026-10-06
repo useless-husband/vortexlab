@@ -4,6 +4,8 @@ on:
   push:
     branches: [main]
   pull_request:
+  # Manual runs on any branch (Actions tab or API), e.g. for a branch that has no pull request yet.
+  workflow_dispatch:
 
 permissions:
   contents: read
