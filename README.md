@@ -17,7 +17,7 @@ resolution, and the command that reproduces it.
 | Lid-driven cavity, Re = 1000 | Botella & Peyret (1998), spectral | centreline extrema within 0.20 % at 257 × 257 |
 | Lid-driven cavity, Re = 100, 1000 | Ghia, Ghia & Shin (1982) table | max deviation 0.008 / 0.016 of the lid speed, located where Ghia's table itself is 2-3 % off the spectral values |
 | Cylinder, steady, Re = 20 (2D-1) | Schäfer & Turek (1996) intervals | c_D, c_L, ΔP inside; recirculation length 0.2 % below its interval |
-| Cylinder, periodic, Re = 100 (2D-2) | Schäfer & Turek (1996) intervals | c_Dmax, c_Lmax, St, ΔP inside at 80 cells per diameter; c_Dmax 0.07 % above at 40; diverges at 10 |
+| Cylinder, periodic, Re = 100 (2D-2) | Schäfer & Turek (1996) intervals | c_Dmax, c_Lmax, St, ΔP inside at 80 cells per diameter, at lattice velocity 0.05 and at half of it; drag oscillation amplitude Mach-dependent by a few per cent even at Ma 0.02; diverges at 10 |
 | Same result for any thread count | — | bit-identical populations and forces with 1, 2, 3, 4, 7 threads |
 
 The full tables, convergence plots, force histories and animations are in the generated report,
@@ -117,16 +117,18 @@ The solver works in lattice units (cell = 1, step = 1). Two choices tie a run to
 the body, and the lattice velocity `U` that stands for the physical stream velocity. Then
 `dx = D_phys / D`, `dt = dx · U / U_phys`, and the viscosity follows from the Reynolds number:
 `nu = U D / Re`, `tau = 3 nu + 1/2`. Two limits apply: the Mach number `Ma = U √3` must be small because the
-method's compressibility error grows like Ma² (runs here use Ma = 0.07-0.17, and each validation table has a
-half-Mach row showing the effect), and `tau` must stay clear of 1/2 (below about 0.51 the grid cannot resolve the
+method's compressibility error grows like Ma² (runs here use Ma = 0.02-0.17, and each validation table has
+rows at half, for case 2D-2 also a quarter, of the Mach number showing the effect), and `tau` must stay clear of 1/2 (below about 0.51 the grid cannot resolve the
 gradients and the run may diverge). `src/units.rs` implements the conversions; the CLI prints every result also
 for a 1 cm body in air and in water.
 
 ## Validation
 
-Reproduce with `make validate` and `make report`. Measured runtime of the full set with 4 threads: 1292 s while
-the machine was busy with other jobs, plus 340 s (2 threads) for the half-velocity 40-cell case added afterwards;
-an earlier run of nearly the same list took 692 s on a quiet machine. Reference values and their sources are in
+Reproduce with `make validate` and `make report`. The tables below were regenerated on a cloud Linux VM with 4
+cores (Intel Xeon at 2.1 GHz, one thread per core, 15 GB): the full set, including the three lower-velocity 2D-2
+cases added in this round, took 3582 s with 4 threads, of which 2857 s were case 2D-2 (the 80-cell runs 679 s at
+U = 0.05 and 1367 s at U = 0.025). Every value that was already in these tables (computed earlier on an Apple M5,
+where nearly the same list took 692 s) came out the same on the VM to the digits shown. Reference values and their sources are in
 [`data/reference/`](data/reference) and [docs/REFERENCES.md](docs/REFERENCES.md). ✓ = inside the published
 interval, ✗ = outside (distance to the interval in brackets).
 
@@ -187,6 +189,9 @@ Case 2D-2 (periodic, Re = 100; ΔP half a period after the lift maximum):
 | 80 | 0.05 | ✓ 3.2354 | 3.1840 | ✓ 0.9947 | −1.0295 | ✓ 0.3007 | ✓ 2.4840 |
 | 20 | 0.025 | ✗ 3.3268 (+2.7 %) | 3.2633 | ✗ 0.9797 (−1.0 %) | −1.0167 | ✓ 0.2995 | ✓ 2.4746 |
 | 40 | 0.025 | ✗ 3.2431 (+0.10 %) | 3.1790 | ✗ 0.9792 (−1.1 %) | −1.0144 | ✓ 0.3013 | ✓ 2.4769 |
+| 80 | 0.025 | ✓ 3.2359 | 3.1702 | ✓ 0.9902 | −1.0251 | ✓ 0.3015 | ✓ 2.4872 |
+| 20 | 0.0125 | ✗ 3.3247 (+2.6 %) | 3.2634 | ✗ 0.9781 (−1.2 %) | −1.0151 | ✓ 0.2996 | ✓ 2.4724 |
+| 40 | 0.0125 | ✓ 3.2395 | 3.1784 | ✗ 0.9763 (−1.4 %) | −1.0115 | ✓ 0.3015 | ✓ 2.4741 |
 | 1996 interval | | 3.22 – 3.24 | — | 0.99 – 1.01 | — | 0.295 – 0.305 | 2.46 – 2.50 |
 | later reference | | 3.2274 | 3.1643 | 0.9866 | −1.0213 | 0.3018 | 2.4848 |
 
@@ -195,19 +200,37 @@ What these tables say, including the unflattering parts:
 * **Steady case.** Drag converges to within 0.04 % of the later spectral value and the pressure difference enters
   its interval at 80 cells per diameter. The recirculation length converges from below and is still 0.2 % short of
   the interval at 80 cells; it is measured by linear interpolation of the centreline velocity between nodes.
-* **Periodic case, maxima.** All four benchmark quantities are inside the 1996 intervals at 80 cells per diameter.
-  The 1996 interval for the maximum lift does not contain the later reference value (0.9866), so "inside" is not
-  the same as "right": at 80 cells this solver's maximum lift is 0.8 % above the later value, and at 40 cells it
-  was 0.4 % below. The lift amplitude does not converge monotonically, and the 80-cell run was made at one Mach
-  number only: judging from the half-velocity rows at 20 and 40 cells (c_Dmax +0.1 %, c_Lmax −0.1 to −0.4 %), the
-  80-cell c_Dmax would sit at about the upper end of its interval at lower Mach number.
-* **Periodic case, drag oscillation.** The peak-to-peak drag variation is 0.051 here against 0.063 in the later
-  reference, 18 % too small at lattice velocity 0.05, and it does not improve with resolution. It does improve at
-  half the velocity (0.063 at 20 cells, 0.064 at 40): this is a compressibility effect. The channel is 22 diameters long, and
-  the time sound needs to cross it is comparable to the period of the drag oscillation, so the pressure field
-  cannot adjust along the whole channel "instantly" as it does in an incompressible fluid. The mean drag and the
-  shedding frequency are much less sensitive. A 2D-2 result closer to the reference would need a lower Mach
-  number (cost grows in proportion) rather than more cells.
+* **Periodic case, maxima.** All four benchmark quantities are inside the 1996 intervals at 80 cells per diameter,
+  at lattice velocity 0.05 and also at half of it (Ma 0.043). Halving the velocity at 80 cells moved c_Dmax by
+  only +0.015 % (3.2354 → 3.2359), not the +0.1 % that the 20- and 40-cell rows had suggested, so the earlier
+  guess that it would end up at the upper end of its interval was wrong. c_Lmax fell by 0.45 % to 0.9902, just
+  inside its interval. That interval does not contain the later reference value (0.9866), so "inside" is not the
+  same as "right": at 80 cells this solver's maximum lift is 0.4 % above the later value at U = 0.025 (0.8 % at
+  0.05), and at 40 cells 0.4-1.0 % below it. St (0.3015) and ΔP (2.4872) at 80 cells and U = 0.025 are within
+  0.1 % of the later reference.
+* **Periodic case, drag oscillation and Mach number.** Peak-to-peak drag c_Dmax − c_Dmin (later reference 0.0631;
+  Ma = U √3):
+
+| cells per D | U = 0.05 (Ma 0.087) | U = 0.025 (Ma 0.043) | U = 0.0125 (Ma 0.022) |
+|---|---|---|---|
+| 20 | 0.0525 (−16.8 %) | 0.0634 (+0.4 %) | 0.0613 (−2.9 %) |
+| 40 | 0.0504 (−20.1 %) | 0.0642 (+1.6 %) | 0.0611 (−3.2 %) |
+| 80 | 0.0514 (−18.6 %) | 0.0657 (+4.1 %) | queued, not yet run |
+
+The earlier version of this page found the amplitude 18 % too small at U = 0.05 and put that down to
+compressibility. The new runs confirm that the deficit is a Mach-number effect and not a resolution effect: on
+a fixed grid, halving the velocity raises the amplitude by 21-28 %, while refining the grid four-fold at a fixed
+velocity changes it by 2-4 %. They do not confirm the simple picture that went with it, an O(Ma²) error that a
+lower Mach number removes: halving the velocity once more *lowers* the amplitude again, by 3-5 %, to 3 % below
+the reference on both grids. An O(Ma²) error would keep its sign and shrink four-fold with each halving. The
+close agreement at U = 0.025 was therefore partly luck, and the amplitude carries a Mach-number uncertainty of a
+few per cent even at Ma = 0.02. A possible reading, not tested here: the channel is 22 diameters long, sound
+needs 1.9, 0.95 and 0.48 convective time units to travel its length at the three velocities, the drag oscillates
+with a period of 1.66 units, and the drag amplitude may follow how these two times compare rather than Ma² alone. c_Dmax and ΔP also change non-monotonically, but by at most 0.1 % and 0.2 %. The Strouhal
+number does behave like an O(Ma²) error: it rises at each halving, the second change 5-6 times smaller than the
+first, and extrapolated to Ma = 0 it is 0.3016 at 40 cells against 0.3018 in the later reference. The report's
+"Mach-number dependence" table lists these ratios for every quantity.
+
 * **Coarse grids.** At 10 cells per diameter the periodic case diverges (relaxation time 0.515); the program
   reports that rather than printing numbers.
 
@@ -325,7 +348,8 @@ user-shape run on Ubuntu.
 
 * Two-dimensional, laminar, uniform grid. No turbulence model, no grid refinement, no moving bodies.
 * Weakly compressible: errors of order Ma², visible in unsteady forces when the domain is long compared with the
-  distance sound travels in one oscillation (see the 2D-2 discussion).
+  distance sound travels in one oscillation. The 2D-2 drag amplitude does not even converge monotonically as the
+  Mach number is lowered (see the 2D-2 discussion).
 * Open boundaries are first-order. The outlet absorbs plane waves only; the side boundaries of the tunnel are
   slightly permeable to the mean flow (of order Ma).
 * The interpolated bounce-back rule does not conserve mass exactly, and falls back to plain bounce-back in concave
