@@ -357,7 +357,11 @@ fn validate(a: &Args) -> Result<(), String> {
     }
     if want("2d2") {
         // `--cases n:u,n:u` runs just those; `--append` keeps the rows already in the file.
-        let default: &[(usize, f64)] = if quick { &[(20, 0.05)] } else { &[(20, 0.05), (40, 0.05), (80, 0.05), (20, 0.025), (40, 0.025)] };
+        let default: &[(usize, f64)] = if quick {
+            &[(20, 0.05)]
+        } else {
+            &[(20, 0.05), (40, 0.05), (80, 0.05), (20, 0.025), (40, 0.025), (80, 0.025), (20, 0.0125), (40, 0.0125)]
+        };
         let mut runs = default.to_vec();
         if let Some(list) = a.opts.get("cases") {
             runs.clear();
